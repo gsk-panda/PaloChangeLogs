@@ -141,10 +141,12 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
 
       const action = ActionType.EDIT; // Since we filter for set/edit
       
-      // Update: Description now contains only the path as requested
+      // Update: Description contains the path
       const description = path;
       
-      const rawContent = new XMLSerializer().serializeToString(entry);
+      // Extract previews as requested
+      const beforePreview = entry.querySelector("before-change-preview")?.textContent || "";
+      const afterPreview = entry.querySelector("after-change-preview")?.textContent || "";
 
       records.push({
         id: `log-${seqno || index}-${Date.now()}`,
@@ -156,8 +158,8 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
         action: action,
         description: description,
         status: CommitStatus.SUCCESS, 
-        diffBefore: '<!-- Previous configuration state not available in summary log -->',
-        diffAfter: rawContent, 
+        diffBefore: beforePreview || 'No previous configuration state provided in summary.',
+        diffAfter: afterPreview || 'No new configuration state provided in summary.', 
       });
     } catch (e) {
       console.warn("Failed to parse log entry", e);

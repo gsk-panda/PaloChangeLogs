@@ -23,10 +23,10 @@ export const analyzeChange = async (
     You are a Senior Network Security Engineer auditing Palo Alto Panorama configuration changes.
     
     Context:
-    A configuration change was made with description: "${description}".
+    A configuration change was made at path: "${description}".
     
     Task:
-    Analyze the following XML configuration diff (Before vs After) and provide a concise summary.
+    Analyze the following configuration preview (Before vs After) and provide a concise summary.
     1. Explain what changed in plain English.
     2. Assess the potential security impact (Risk Level: Low/Medium/High).
     3. If there are red flags (e.g., opening "any" to "any", removing authentication), highlight them explicitly.
@@ -47,7 +47,7 @@ export const analyzeChange = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
     return response.text || "No analysis could be generated.";
