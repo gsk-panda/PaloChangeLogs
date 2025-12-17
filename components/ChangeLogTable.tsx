@@ -70,10 +70,8 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
         <table className="min-w-full divide-y divide-slate-200 table-fixed">
           <thead className="bg-slate-50">
             <tr>
-              <th scope="col" className="w-24 px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Status</th>
               <th scope="col" className="w-32 px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Time</th>
               <th scope="col" className="w-32 px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Admin</th>
-              <th scope="col" className="w-40 px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Type</th>
               <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</th>
               <th scope="col" className="w-20 px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Action</th>
             </tr>
@@ -85,9 +83,6 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                   onClick={() => toggleExpand(change.id)}
                   className={`cursor-pointer hover:bg-slate-50 transition-colors ${expandedId === change.id ? 'bg-slate-50' : ''}`}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <StatusBadge status={change.status} />
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                     {new Date(change.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                   </td>
@@ -96,8 +91,7 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                       {change.admin}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">{change.type}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900 truncate">
+                  <td className="px-6 py-4 text-sm font-medium text-slate-900 truncate" title={change.description}>
                     {change.description}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">
@@ -106,7 +100,7 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                 </tr>
                 {expandedId === change.id && (
                   <tr className="bg-slate-50/50">
-                    <td colSpan={6} className="px-0">
+                    <td colSpan={4} className="px-0">
                       <div className="px-6 py-6 border-t border-slate-200 shadow-inner bg-slate-50">
                         <div className="flex flex-col gap-6">
                           {/* Action Bar */}
@@ -115,7 +109,7 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                                 <h3 className="text-base font-semibold text-slate-900">Configuration Details</h3>
                                 <div className="text-sm text-slate-500 mt-1">
                                     <span className="font-mono text-xs bg-slate-200 px-2 py-0.5 rounded mr-2">SEQ: {change.seqno}</span>
-                                    {change.description}
+                                    <span className="font-mono text-xs text-slate-600 break-all">{change.description}</span>
                                 </div>
                             </div>
                             <div className="flex gap-2">
@@ -189,26 +183,6 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
       </div>
     </div>
   );
-};
-
-const StatusBadge: React.FC<{ status: CommitStatus }> = ({ status }) => {
-  if (status === CommitStatus.SUCCESS) {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-        <ShieldCheck size={14} />
-        Success
-      </span>
-    );
-  }
-  if (status === CommitStatus.FAILURE) {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-        <AlertCircle size={14} />
-        Failed
-      </span>
-    );
-  }
-  return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">{status}</span>;
 };
 
 export default ChangeLogTable;

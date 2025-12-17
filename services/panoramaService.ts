@@ -141,7 +141,9 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
 
       const action = ActionType.EDIT; // Since we filter for set/edit
       
-      const description = `Command '${cmd}' executed on path: ${path.substring(0, 50)}...`;
+      // Update: Description now contains only the path as requested
+      const description = path;
+      
       const rawContent = new XMLSerializer().serializeToString(entry);
 
       records.push({
