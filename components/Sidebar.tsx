@@ -21,7 +21,7 @@ const Sidebar: React.FC = () => {
 
       <div className="p-4 border-t border-slate-700 hidden md:block">
         <div className="text-xs text-slate-400">Connected to:</div>
-        <div className="text-sm font-semibold truncate">panorama-hq-primary.local</div>
+        <div className="text-sm font-semibold truncate" title="panorama.officeours.com">panorama.officeours.com</div>
       </div>
     </div>
   );

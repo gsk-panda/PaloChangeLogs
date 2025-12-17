@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChangeLogTable from './components/ChangeLogTable';
 import StatsChart from './components/StatsChart';
-import { Search, Bell, Calendar, Filter } from 'lucide-react';
+import { Search, Bell, Calendar, Filter, Bot, AlertTriangle, RefreshCw } from 'lucide-react';
 import { ChangeRecord, DailyStat } from './types';
 import { fetchChangeLogs, fetchDailyStats } from './services/panoramaService';
 
@@ -10,23 +10,28 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<ChangeRecord[]>([]);
   const [stats, setStats] = useState<DailyStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Use Promise.all to fetch concurrently, but handle potential errors
+      const [fetchedLogs, fetchedStats] = await Promise.all([
+        fetchChangeLogs(),
+        fetchDailyStats()
+      ]);
+      setLogs(fetchedLogs);
+      setStats(fetchedStats);
+    } catch (err: any) {
+      console.error("Failed to load data", err);
+      setError(err.message || "Failed to connect to Panorama. Please check network connectivity.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [fetchedLogs, fetchedStats] = await Promise.all([
-          fetchChangeLogs(),
-          fetchDailyStats()
-        ]);
-        setLogs(fetchedLogs);
-        setStats(fetchedStats);
-      } catch (error) {
-        console.error("Failed to load data", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadData();
   }, []);
 
@@ -78,23 +83,45 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between animate-fadeIn">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="text-red-600" size={20} />
+                  <div>
+                    <h3 className="text-sm font-bold text-red-800">Connection Error</h3>
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={loadData}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-red-200 text-red-700 text-sm font-medium rounded-lg hover:bg-red-50"
+                >
+                  <RefreshCw size={14} /> Retry
+                </button>
+              </div>
+            )}
+
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 md:col-span-2">
                 <h3 className="text-sm font-semibold text-slate-900 mb-4">Change Volume History</h3>
-                {loading ? <div className="h-64 bg-slate-100 rounded animate-pulse"></div> : <StatsChart data={stats} />}
+                {loading ? (
+                  <div className="h-64 bg-slate-100 rounded animate-pulse flex items-center justify-center text-slate-400 text-sm">Loading stats...</div>
+                ) : (
+                  <StatsChart data={stats} />
+                )}
               </div>
               
               <div className="space-y-6">
                  <StatCard 
                    title="Total Commits Today" 
-                   value="12" 
-                   trend="+20%" 
+                   value={stats.length > 0 ? stats[stats.length-1]?.changes.toString() : "0"} 
+                   trend={stats.length > 0 ? "Updated" : "No Data"} 
                    trendUp={true} 
                  />
                  <StatCard 
                    title="Pending Review" 
-                   value="3" 
+                   value="0" 
                    trend="Normal" 
                    trendUp={true} 
                    neutral
@@ -148,8 +175,5 @@ const StatCard: React.FC<{ title: string; value: string; trend: string; trendUp:
     </div>
   </div>
 );
-
-// Icon component needed for StatCard if we want to add one later, but removed for brevity
-import { Bot } from 'lucide-react';
 
 export default App;
