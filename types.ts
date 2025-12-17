@@ -26,6 +26,7 @@ export interface DiffLine {
 
 export interface ChangeRecord {
   id: string;
+  seqno: string; // Sequence number from Panorama logs
   timestamp: string; // ISO String
   admin: string;
   deviceGroup: string;
@@ -35,6 +36,7 @@ export interface ChangeRecord {
   status: CommitStatus;
   diffBefore: string;
   diffAfter: string;
+  fullDetails?: string; // Optional field to store the result of a detailed query
 }
 
 export interface DailyStat {

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, ShieldCheck, AlertCircle, Bot } from 'lucide-react';
+import { ChevronDown, ChevronUp, ShieldCheck, AlertCircle, Bot, FileText, Loader2 } from 'lucide-react';
 import { ChangeRecord, CommitStatus } from '../types';
 import DiffViewer from './DiffViewer';
 import { analyzeChange } from '../services/geminiService';
+import { fetchLogDetail } from '../services/panoramaService';
 import ReactMarkdown from 'react-markdown';
 
 interface ChangeLogTableProps {
@@ -13,6 +14,11 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<Record<string, string>>({});
   const [loadingAi, setLoadingAi] = useState<Record<string, boolean>>({});
+  
+  // State for handling detail fetching
+  const [detailsData, setDetailsData] = useState<Record<string, string>>({});
+  const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>({});
+  const [detailsError, setDetailsError] = useState<Record<string, string>>({});
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -20,7 +26,7 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
 
   const handleAnalyze = async (e: React.MouseEvent, record: ChangeRecord) => {
     e.stopPropagation();
-    if (aiAnalysis[record.id]) return; // Already analyzed
+    if (aiAnalysis[record.id]) return;
 
     setLoadingAi(prev => ({ ...prev, [record.id]: true }));
     try {
@@ -29,6 +35,24 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
     } finally {
       setLoadingAi(prev => ({ ...prev, [record.id]: false }));
     }
+  };
+
+  const handleFetchDetails = async (e: React.MouseEvent, record: ChangeRecord) => {
+      e.stopPropagation();
+      if (detailsData[record.id]) return; // Already fetched
+
+      setLoadingDetails(prev => ({ ...prev, [record.id]: true }));
+      setDetailsError(prev => ({ ...prev, [record.id]: '' }));
+      
+      try {
+          const xmlResult = await fetchLogDetail(record.seqno);
+          setDetailsData(prev => ({ ...prev, [record.id]: xmlResult }));
+      } catch (err: any) {
+          console.error("Failed to fetch details", err);
+          setDetailsError(prev => ({ ...prev, [record.id]: err.message || "Failed to load details" }));
+      } finally {
+          setLoadingDetails(prev => ({ ...prev, [record.id]: false }));
+      }
   };
 
   return (
@@ -76,23 +100,58 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                     <td colSpan={6} className="px-0">
                       <div className="px-6 py-6 border-t border-slate-200 shadow-inner bg-slate-50">
                         <div className="flex flex-col gap-6">
-                          <div className="flex justify-between items-center border-b border-slate-200 pb-4">
+                          {/* Action Bar */}
+                          <div className="flex flex-wrap justify-between items-center border-b border-slate-200 pb-4 gap-3">
                             <div>
                                 <h3 className="text-base font-semibold text-slate-900">Configuration Details</h3>
-                                <p className="text-sm text-slate-500">
-                                  Full Description: <span className="text-slate-700 italic">{change.description}</span>
-                                </p>
+                                <div className="text-sm text-slate-500 mt-1">
+                                    <span className="font-mono text-xs bg-slate-200 px-2 py-0.5 rounded mr-2">SEQ: {change.seqno}</span>
+                                    {change.description}
+                                </div>
                             </div>
-                            <button 
-                              onClick={(e) => handleAnalyze(e, change)}
-                              disabled={loadingAi[change.id]}
-                              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:shadow-md hover:opacity-90 transition-all disabled:opacity-50 disabled:shadow-none"
-                            >
-                              <Bot size={16} />
-                              {loadingAi[change.id] ? 'Analyzing...' : 'Analyze Change'}
-                            </button>
+                            <div className="flex gap-2">
+                                <button 
+                                  onClick={(e) => handleFetchDetails(e, change)}
+                                  disabled={loadingDetails[change.id]}
+                                  className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all disabled:opacity-50"
+                                >
+                                  {loadingDetails[change.id] ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                                  {detailsData[change.id] ? 'Refresh Details' : 'Load Full Details'}
+                                </button>
+                                <button 
+                                  onClick={(e) => handleAnalyze(e, change)}
+                                  disabled={loadingAi[change.id]}
+                                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:shadow-md hover:opacity-90 transition-all disabled:opacity-50"
+                                >
+                                  <Bot size={16} />
+                                  {loadingAi[change.id] ? 'Analyzing...' : 'Analyze Change'}
+                                </button>
+                            </div>
                           </div>
                           
+                          {/* Error Message for Details */}
+                          {detailsError[change.id] && (
+                              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                                  <AlertCircle size={16} />
+                                  {detailsError[change.id]}
+                              </div>
+                          )}
+
+                          {/* Full Details View */}
+                          {detailsData[change.id] && (
+                            <div className="bg-slate-900 rounded-xl overflow-hidden shadow-sm ring-1 ring-slate-900/10">
+                                <div className="bg-slate-800 px-4 py-2 flex items-center justify-between border-b border-slate-700">
+                                    <span className="text-slate-300 text-xs font-mono font-bold uppercase tracking-wider">Detailed Log Response</span>
+                                </div>
+                                <div className="p-4 overflow-x-auto">
+                                    <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap break-all leading-relaxed">
+                                        {detailsData[change.id]}
+                                    </pre>
+                                </div>
+                            </div>
+                          )}
+
+                          {/* AI Analysis View */}
                           {aiAnalysis[change.id] && (
                             <div className="bg-white border border-indigo-100 rounded-xl p-6 shadow-sm ring-1 ring-indigo-50 animate-fadeIn">
                                <div className="flex items-center gap-2 mb-3 text-indigo-700 font-bold text-sm uppercase tracking-wide">
@@ -105,6 +164,7 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                             </div>
                           )}
 
+                          {/* Standard Diff View */}
                           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
                              <DiffViewer before={change.diffBefore} after={change.diffAfter} />
                           </div>
