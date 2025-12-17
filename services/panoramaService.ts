@@ -141,10 +141,9 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
 
       const action = ActionType.EDIT; // Since we filter for set/edit
       
-      // Update: Description contains the path
       const description = path;
       
-      // Extract previews as requested
+      // Extract previews
       const beforePreview = entry.querySelector("before-change-preview")?.textContent || "";
       const afterPreview = entry.querySelector("after-change-preview")?.textContent || "";
 
@@ -171,10 +170,19 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
 
 /**
  * Fetches change logs from real Panorama API
+ * Supports an optional date parameter (YYYY-MM-DD)
  */
-export const fetchChangeLogs = async (): Promise<ChangeRecord[]> => {
-    // nlogs=100
-    const xml = await executePanoramaQuery('type=log&log-type=config&nlogs=100');
+export const fetchChangeLogs = async (date?: string): Promise<ChangeRecord[]> => {
+    let params = 'type=log&log-type=config&nlogs=500'; 
+    
+    if (date) {
+        // Panorama receive_time query format: YYYY/MM/DD HH:MM:SS
+        const panoramaDate = date.replace(/-/g, '/');
+        const query = `(receive_time geq '${panoramaDate} 00:00:00') and (receive_time leq '${panoramaDate} 23:59:59')`;
+        params += `&query=${encodeURIComponent(query)}`;
+    }
+    
+    const xml = await executePanoramaQuery(params);
     return parsePanoramaXML(xml);
 }
 
@@ -185,7 +193,6 @@ export const fetchChangeLogs = async (): Promise<ChangeRecord[]> => {
 export const fetchLogDetail = async (seqno: string): Promise<string> => {
     if (!seqno) throw new Error("Sequence number is required to fetch details.");
     
-    // Note: The parentheses in the query often need to be encoded, but encodeURIComponent handles that.
     const query = `(seqno eq ${seqno})`;
     const params = `type=log&log-type=config&show-detail=yes&query=${encodeURIComponent(query)}&uniq=yes&dir=backward&nlogs=1`;
     

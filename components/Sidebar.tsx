@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Server, ShieldAlert, Settings, Activity } from 'lucide-react';
+import { LayoutDashboard, Settings, Activity } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   return (
@@ -13,8 +13,6 @@ const Sidebar: React.FC = () => {
       
       <nav className="flex-1 py-6 flex flex-col gap-2 px-2 md:px-4">
         <NavItem icon={<LayoutDashboard size={20} />} label="Dashboard" active />
-        <NavItem icon={<Server size={20} />} label="Device Groups" />
-        <NavItem icon={<ShieldAlert size={20} />} label="Security Audits" />
         <div className="flex-1"></div>
         <NavItem icon={<Settings size={20} />} label="Settings" />
       </nav>

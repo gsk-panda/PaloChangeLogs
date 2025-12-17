@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, ShieldCheck, AlertCircle, Bot, FileText, Loader2 } from 'lucide-react';
-import { ChangeRecord, CommitStatus } from '../types';
+import { ChevronDown, ChevronUp, AlertCircle, FileText, Loader2 } from 'lucide-react';
+import { ChangeRecord } from '../types';
 import DiffViewer from './DiffViewer';
-import { analyzeChange } from '../services/geminiService';
 import { fetchLogDetail } from '../services/panoramaService';
-import ReactMarkdown from 'react-markdown';
 
 interface ChangeLogTableProps {
   changes: ChangeRecord[];
@@ -12,8 +10,6 @@ interface ChangeLogTableProps {
 
 const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [aiAnalysis, setAiAnalysis] = useState<Record<string, string>>({});
-  const [loadingAi, setLoadingAi] = useState<Record<string, boolean>>({});
   
   // State for handling detail fetching
   const [detailsData, setDetailsData] = useState<Record<string, string>>({});
@@ -22,19 +18,6 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
-  };
-
-  const handleAnalyze = async (e: React.MouseEvent, record: ChangeRecord) => {
-    e.stopPropagation();
-    if (aiAnalysis[record.id]) return;
-
-    setLoadingAi(prev => ({ ...prev, [record.id]: true }));
-    try {
-      const result = await analyzeChange(record.description, record.diffBefore, record.diffAfter);
-      setAiAnalysis(prev => ({ ...prev, [record.id]: result }));
-    } finally {
-      setLoadingAi(prev => ({ ...prev, [record.id]: false }));
-    }
   };
 
   const handleFetchDetails = async (e: React.MouseEvent, record: ChangeRecord) => {
@@ -121,14 +104,6 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                                   {loadingDetails[change.id] ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
                                   {detailsData[change.id] ? 'Refresh Details' : 'Load Full Details'}
                                 </button>
-                                <button 
-                                  onClick={(e) => handleAnalyze(e, change)}
-                                  disabled={loadingAi[change.id]}
-                                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:shadow-md hover:opacity-90 transition-all disabled:opacity-50"
-                                >
-                                  <Bot size={16} />
-                                  {loadingAi[change.id] ? 'Analyzing...' : 'Analyze Change'}
-                                </button>
                             </div>
                           </div>
                           
@@ -150,19 +125,6 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                                     <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap break-all leading-relaxed">
                                         {detailsData[change.id]}
                                     </pre>
-                                </div>
-                            </div>
-                          )}
-
-                          {/* AI Analysis View */}
-                          {aiAnalysis[change.id] && (
-                            <div className="bg-white border border-indigo-100 rounded-xl p-6 shadow-sm ring-1 ring-indigo-50 animate-fadeIn">
-                               <div className="flex items-center gap-2 mb-3 text-indigo-700 font-bold text-sm uppercase tracking-wide">
-                                  <Bot size={18} />
-                                  <span>Gemini Analysis</span>
-                               </div>
-                               <div className="prose prose-sm prose-indigo max-w-none text-slate-700 leading-relaxed">
-                                  <ReactMarkdown>{aiAnalysis[change.id]}</ReactMarkdown>
                                 </div>
                             </div>
                           )}
