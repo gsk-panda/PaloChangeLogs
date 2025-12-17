@@ -63,6 +63,10 @@ const App: React.FC = () => {
     year: 'numeric' 
   });
 
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date);
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
       <Sidebar />
@@ -161,8 +165,13 @@ const App: React.FC = () => {
                 {loading ? (
                   <div className="h-64 bg-slate-100 rounded animate-pulse flex items-center justify-center text-slate-400 text-sm">Loading stats...</div>
                 ) : (
-                  <StatsChart data={stats} />
+                  <StatsChart 
+                    data={stats} 
+                    selectedDate={selectedDate}
+                    onDateSelect={handleDateSelect}
+                  />
                 )}
+                <p className="mt-4 text-[10px] text-slate-400 text-center">Click a bar to view logs for that specific day.</p>
               </div>
               
               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
