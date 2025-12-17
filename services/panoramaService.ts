@@ -59,7 +59,8 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
     }
   });
 
-  return records;
+  // Sort records by timestamp descending (newest first)
+  return records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 };
 
 /**
@@ -68,16 +69,14 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
 export const fetchChangeLogs = async (): Promise<ChangeRecord[]> => {
   const { HOST, API_KEY } = PANORAMA_CONFIG;
   
-  // Use 'key' query parameter which is standard for most PAN-OS versions XML API
-  // Using encodeURIComponent is crucial for keys with special chars
-  const url = `${HOST}/api/?type=log&log-type=config&nlogs=50&key=${encodeURIComponent(API_KEY)}`;
+  // Fetch 100 logs to ensure we have better history visibility
+  const url = `${HOST}/api/?type=log&log-type=config&nlogs=100&key=${encodeURIComponent(API_KEY)}`;
 
   console.log(`[Panorama Service] Fetching URL: ${url}`);
 
   try {
     const response = await fetch(url, {
       method: 'GET',
-      // Removed custom headers to avoid preflight OPTIONS issues with some proxies
     });
 
     if (!response.ok) {
@@ -102,11 +101,8 @@ export const fetchChangeLogs = async (): Promise<ChangeRecord[]> => {
            throw new Error("CONFIGURATION ERROR: The app fetched its own index.html instead of the API. This usually means HOST in constants.ts is set to a URL that does not match the 'proxy' in vite.config.ts.");
        }
 
-       // Try to extract title tag to see what page we hit
        const titleMatch = text.match(/<title>(.*?)<\/title>/i);
        const title = titleMatch ? titleMatch[1] : "Unknown Page";
-       
-       // Include a snippet of the HTML body for debugging
        const snippet = text.substring(0, 200).replace(/</g, '&lt;');
        
        throw new Error(`Received HTML instead of XML (Page Title: "${title}"). \nRaw start: ${snippet}`);

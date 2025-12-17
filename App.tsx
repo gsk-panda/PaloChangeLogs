@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChangeLogTable from './components/ChangeLogTable';
 import StatsChart from './components/StatsChart';
-import { Search, Bell, Calendar, Filter, Bot, AlertTriangle, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Bell, Calendar, Filter, Bot, AlertTriangle, RefreshCw, ChevronDown, ChevronRight, Clock } from 'lucide-react';
 import { ChangeRecord, DailyStat } from './types';
 import { fetchChangeLogs, fetchDailyStats } from './services/panoramaService';
 
@@ -36,6 +36,18 @@ const App: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Calculate Today's stats
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStats = stats.find(s => s.date === todayStr);
+  const todayCount = todayStats ? todayStats.changes : 0;
+  
+  // Find last activity if 0
+  let lastActivity = "None";
+  if (todayCount === 0 && logs.length > 0) {
+     const lastDate = new Date(logs[0].timestamp);
+     lastActivity = lastDate.toLocaleDateString();
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
@@ -134,6 +146,11 @@ const App: React.FC = () => {
                 <h3 className="text-sm font-semibold text-slate-900 mb-4">Change Volume History</h3>
                 {loading ? (
                   <div className="h-64 bg-slate-100 rounded animate-pulse flex items-center justify-center text-slate-400 text-sm">Loading stats...</div>
+                ) : stats.length === 0 ? (
+                  <div className="h-64 flex flex-col items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
+                    <Clock size={32} className="mb-2 opacity-50"/>
+                    <span className="text-sm font-medium">No recent history available</span>
+                  </div>
                 ) : (
                   <StatsChart data={stats} />
                 )}
@@ -142,9 +159,10 @@ const App: React.FC = () => {
               <div className="space-y-6">
                  <StatCard 
                    title="Total Commits Today" 
-                   value={stats.length > 0 ? stats[stats.length-1]?.changes.toString() : "0"} 
-                   trend={stats.length > 0 ? "Updated" : "No Data"} 
-                   trendUp={true} 
+                   value={todayCount.toString()} 
+                   subValue={todayCount === 0 && lastActivity !== "None" ? `Last: ${lastActivity}` : undefined}
+                   trend={todayCount > 0 ? "Active" : "Quiet"} 
+                   trendUp={todayCount > 0} 
                  />
                  <StatCard 
                    title="Pending Review" 
@@ -188,11 +206,14 @@ const App: React.FC = () => {
 };
 
 // Helper sub-component for stats
-const StatCard: React.FC<{ title: string; value: string; trend: string; trendUp: boolean; neutral?: boolean }> = ({ title, value, trend, trendUp, neutral }) => (
+const StatCard: React.FC<{ title: string; value: string; subValue?: string; trend: string; trendUp: boolean; neutral?: boolean }> = ({ title, value, subValue, trend, trendUp, neutral }) => (
   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
     <h4 className="text-slate-500 text-sm font-medium mb-2">{title}</h4>
     <div className="flex items-end justify-between">
-      <span className="text-3xl font-bold text-slate-900">{value}</span>
+      <div>
+        <span className="text-3xl font-bold text-slate-900 block">{value}</span>
+        {subValue && <span className="text-xs text-slate-400 font-medium mt-1 block">{subValue}</span>}
+      </div>
       <span className={`text-xs font-bold px-2 py-1 rounded-full ${
         neutral ? 'bg-slate-100 text-slate-600' :
         trendUp ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
