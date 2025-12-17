@@ -4,7 +4,7 @@ import ChangeLogTable from './components/ChangeLogTable';
 import StatsChart from './components/StatsChart';
 import { Search, Bell, Calendar, Filter, Bot, AlertTriangle, RefreshCw, ChevronDown, ChevronRight, Clock } from 'lucide-react';
 import { ChangeRecord, DailyStat } from './types';
-import { fetchChangeLogs, fetchDailyStats } from './services/panoramaService';
+import { fetchChangeLogs, calculateDailyStats } from './services/panoramaService';
 
 const App: React.FC = () => {
   const [logs, setLogs] = useState<ChangeRecord[]>([]);
@@ -18,13 +18,14 @@ const App: React.FC = () => {
     setError(null);
     setShowErrorDetails(false);
     try {
-      // Use Promise.all to fetch concurrently, but handle potential errors
-      const [fetchedLogs, fetchedStats] = await Promise.all([
-        fetchChangeLogs(),
-        fetchDailyStats()
-      ]);
+      // Fetch logs once (handling async job polling if necessary)
+      const fetchedLogs = await fetchChangeLogs();
+      
+      // Calculate stats locally from the fetched logs
+      const calculatedStats = calculateDailyStats(fetchedLogs);
+      
       setLogs(fetchedLogs);
-      setStats(fetchedStats);
+      setStats(calculatedStats);
     } catch (err: any) {
       console.error("Failed to load data", err);
       setError(err.message || "Failed to connect to Panorama. Please check network connectivity.");

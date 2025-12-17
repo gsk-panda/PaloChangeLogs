@@ -1,6 +1,8 @@
 import { ChangeRecord, DailyStat, ChangeType, ActionType, CommitStatus } from '../types';
 import { PANORAMA_CONFIG } from '../constants';
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Helper to parse Panorama XML response
  */
@@ -64,65 +66,111 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
 };
 
 /**
- * Fetches change logs from real Panorama API
+ * Polls the Panorama API for job results given a Job ID
  */
-export const fetchChangeLogs = async (): Promise<ChangeRecord[]> => {
-  const { HOST, API_KEY } = PANORAMA_CONFIG;
-  
-  // Fetch 100 logs to ensure we have better history visibility
-  const url = `${HOST}/api/?type=log&log-type=config&nlogs=100&key=${encodeURIComponent(API_KEY)}`;
-
-  console.log(`[Panorama Service] Fetching URL: ${url}`);
-
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-         throw new Error(`Endpoint not found (404). The proxy path '${HOST}' might be misconfigured.`);
-      }
-      if (response.status === 403) {
-         throw new Error(`Access Denied (403). Check if the API Key has correct permissions.`);
-      }
-      throw new Error(`Panorama API HTTP Error: ${response.status} ${response.statusText}`);
-    }
-
-    const text = await response.text();
+const pollForJobResults = async (jobId: string): Promise<string> => {
+    const { HOST, API_KEY } = PANORAMA_CONFIG;
+    // Note: Use encodeURIComponent for the key
+    const pollUrl = `${HOST}/api/?type=log&action=get&job-id=${jobId}&key=${encodeURIComponent(API_KEY)}`;
     
-    // DEBUG: Log the start of response
-    console.log("[Panorama Service] Response start:", text.substring(0, 100));
+    let attempts = 0;
+    const maxAttempts = 30; // 30 seconds timeout roughly
 
-    // Validate that we actually got XML back
-    if (text.trim().toLowerCase().startsWith('<!doctype html') || text.trim().toLowerCase().startsWith('<html')) {
-       // Check if we accidentally got our own index.html (common proxy misconfig)
-       if (text.includes('id="root"') || text.includes('src="/index.tsx"')) {
-           throw new Error("CONFIGURATION ERROR: The app fetched its own index.html instead of the API. This usually means HOST in constants.ts is set to a URL that does not match the 'proxy' in vite.config.ts.");
-       }
+    while (attempts < maxAttempts) {
+        console.log(`[Panorama Service] Polling Job ${jobId} (Attempt ${attempts + 1})...`);
+        const response = await fetch(pollUrl);
+        if (!response.ok) throw new Error(`Polling failed: ${response.status}`);
+        
+        const text = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, "text/xml");
+        
+        // 1. Check for entries (Success)
+        // If the job is done and returned logs, <entry> tags will be present
+        if (doc.querySelectorAll("entry").length > 0) {
+            return text;
+        }
 
-       const titleMatch = text.match(/<title>(.*?)<\/title>/i);
-       const title = titleMatch ? titleMatch[1] : "Unknown Page";
-       const snippet = text.substring(0, 200).replace(/</g, '&lt;');
-       
-       throw new Error(`Received HTML instead of XML (Page Title: "${title}"). \nRaw start: ${snippet}`);
+        // 2. Check for Explicit COMPLETE status without entries (Empty Success)
+        // User specified status should be COMPLETE
+        const jobStatus = doc.querySelector("job status")?.textContent;
+        if (jobStatus === 'COMPLETE') {
+             // Job finished but no entries found (or different XML structure), return text to be parsed safely
+             return text; 
+        }
+
+        // 3. Check for API Error
+        const respStatus = doc.querySelector("response")?.getAttribute("status");
+        if (respStatus === 'error') {
+            const msg = doc.querySelector("result msg")?.textContent || "Unknown job error";
+            throw new Error(`Job failed: ${msg}`);
+        }
+
+        // 4. If 'ACT' (Active) or 'PEND' (Pending), wait and retry
+        await delay(1000);
+        attempts++;
     }
-    
-    return parsePanoramaXML(text);
-
-  } catch (error) {
-    console.error("Failed to fetch from Panorama:", error);
-    throw error;
-  }
-};
+    throw new Error("Timeout waiting for Panorama log query.");
+}
 
 /**
- * Fetches daily statistics.
+ * Fetches change logs from real Panorama API handling async jobs
  */
-export const fetchDailyStats = async (): Promise<DailyStat[]> => {
-  try {
-    const logs = await fetchChangeLogs();
+export const fetchChangeLogs = async (): Promise<ChangeRecord[]> => {
+    const { HOST, API_KEY } = PANORAMA_CONFIG;
+    const url = `${HOST}/api/?type=log&log-type=config&nlogs=100&key=${encodeURIComponent(API_KEY)}`;
     
+    console.log(`[Panorama Service] Initiating Query: ${url}`);
+    
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+             if (response.status === 404) throw new Error(`Endpoint not found (404). Check HOST/Proxy config.`);
+             if (response.status === 403) throw new Error(`Access Denied (403). Check API Key.`);
+             throw new Error(`API Request Failed: ${response.status}`);
+        }
+        
+        const text = await response.text();
+        console.log("[Panorama Service] Initial Response:", text.substring(0, 150));
+        
+        // Safety check for HTML responses (proxy errors)
+        if (text.trim().toLowerCase().startsWith('<!doctype html') || text.trim().toLowerCase().startsWith('<html')) {
+             throw new Error("Received HTML instead of XML. Check Proxy configuration.");
+        }
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, "text/xml");
+        
+        // Check if the response is a Job ID
+        // Typical structure: <response status="success"><result><job>123</job></result></response>
+        const jobNode = doc.querySelector("result job");
+        
+        // Ensure it's not a status report node (which has children like <status>, <progress>)
+        // Only treat it as a new job ID if it doesn't have status children yet
+        const isJobIdOnly = jobNode && !doc.querySelector("result job status");
+        
+        if (isJobIdOnly) {
+             const jobId = jobNode.textContent?.trim();
+             if (jobId) {
+                 console.log(`[Panorama Service] Async Job ID detected: ${jobId}`);
+                 const resultText = await pollForJobResults(jobId);
+                 return parsePanoramaXML(resultText);
+             }
+        }
+        
+        // Fallback: synchronous response
+        return parsePanoramaXML(text);
+
+    } catch (error) {
+        console.error("Panorama Fetch Error:", error);
+        throw error;
+    }
+}
+
+/**
+ * Calculates daily statistics from existing logs (synchronous)
+ */
+export const calculateDailyStats = (logs: ChangeRecord[]): DailyStat[] => {
     const statsMap = new Map<string, number>();
   
     logs.forEach(log => {
@@ -138,8 +186,4 @@ export const fetchDailyStats = async (): Promise<DailyStat[]> => {
       .sort((a, b) => a.date.localeCompare(b.date));
   
     return sortedStats;
-  } catch (error) {
-    console.error("Error generating stats:", error);
-    return [];
-  }
 };
