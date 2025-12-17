@@ -8,14 +8,18 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
  */
 const pollForJobResults = async (jobId: string): Promise<string> => {
     const { HOST, API_KEY } = PANORAMA_CONFIG;
+    // Note: API Key encoding is critical here.
     const pollUrl = `${HOST}/api/?type=log&action=get&job-id=${jobId}&key=${encodeURIComponent(API_KEY)}`;
     
     let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout roughly
+    const maxAttempts = 30; 
 
     while (attempts < maxAttempts) {
         console.log(`[Panorama Service] Polling Job ${jobId} (Attempt ${attempts + 1})...`);
-        const response = await fetch(pollUrl);
+        const response = await fetch(pollUrl, {
+             headers: { 'Accept': 'application/xml' }
+        });
+        
         if (!response.ok) throw new Error(`Polling failed: ${response.status}`);
         
         const text = await response.text();
@@ -27,9 +31,9 @@ const pollForJobResults = async (jobId: string): Promise<string> => {
             return text;
         }
 
-        // 2. Check for Explicit COMPLETE status without entries (Empty Success)
+        // 2. Check for Explicit COMPLETE status 
         const jobStatus = doc.querySelector("job status")?.textContent;
-        if (jobStatus === 'COMPLETE') {
+        if (jobStatus === 'COMPLETE' || jobStatus === 'FIN') {
              return text; 
         }
 
@@ -40,7 +44,7 @@ const pollForJobResults = async (jobId: string): Promise<string> => {
             throw new Error(`Job failed: ${msg}`);
         }
 
-        // 4. If 'ACT' (Active) or 'PEND' (Pending), wait and retry
+        // 4. Wait and retry
         await delay(1000);
         attempts++;
     }
@@ -52,13 +56,17 @@ const pollForJobResults = async (jobId: string): Promise<string> => {
  */
 const executePanoramaQuery = async (queryParams: string): Promise<string> => {
     const { HOST, API_KEY } = PANORAMA_CONFIG;
-    // Construct full URL. Caller must provide the query parameters (without key).
-    const url = `${HOST}/api/?${queryParams}&key=${encodeURIComponent(API_KEY)}`;
+    // Construct full URL. 
+    // We add a timestamp to prevent caching.
+    const url = `${HOST}/api/?${queryParams}&key=${encodeURIComponent(API_KEY)}&_t=${Date.now()}`;
 
     console.log(`[Panorama Service] Executing Query: ${url}`);
 
     try {
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            headers: { 'Accept': 'application/xml' }
+        });
+        
         if (!response.ok) {
              if (response.status === 404) throw new Error(`Endpoint not found (404). Check HOST/Proxy config.`);
              if (response.status === 403) throw new Error(`Access Denied (403). Check API Key.`);
@@ -69,7 +77,8 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
         
         // Safety check for HTML responses
         if (text.trim().toLowerCase().startsWith('<!doctype html') || text.trim().toLowerCase().startsWith('<html')) {
-             throw new Error("Received HTML instead of XML. Check Proxy configuration.");
+             console.error("Received HTML response:", text.substring(0, 500));
+             throw new Error("Received HTML instead of XML. The proxy target may be incorrect, the API key invalid, or the server is returning a login page.");
         }
 
         const parser = new DOMParser();
@@ -77,6 +86,7 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
         
         // Check if the response is a Job ID
         const jobNode = doc.querySelector("result job");
+        // Ensure it is just a job ID response, not a job status response
         const isJobIdOnly = jobNode && !doc.querySelector("result job status");
         
         if (isJobIdOnly) {
@@ -114,7 +124,7 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
     try {
       const cmd = entry.querySelector("cmd")?.textContent || "unknown";
 
-      // FILTER: Only show "set" or "edit" commands
+      // FILTER: Only show "set" or "edit" commands as requested
       if (cmd !== 'set' && cmd !== 'edit') {
         return; 
       }
@@ -129,7 +139,7 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
       else if (path.includes("address") || path.includes("object")) type = ChangeType.OBJECT;
       else if (path.includes("network") || path.includes("interface")) type = ChangeType.NETWORK;
 
-      const action = ActionType.EDIT; // Since we filter for set/edit, it's effectively an Edit/Set action
+      const action = ActionType.EDIT; // Since we filter for set/edit
       
       const description = `Command '${cmd}' executed on path: ${path.substring(0, 50)}...`;
       const rawContent = new XMLSerializer().serializeToString(entry);
@@ -166,12 +176,13 @@ export const fetchChangeLogs = async (): Promise<ChangeRecord[]> => {
 
 /**
  * Fetches detailed log information for a specific sequence number.
+ * matches format: query=(seqno eq <id>)&uniq=yes&dir=backward&nlogs=1
  */
 export const fetchLogDetail = async (seqno: string): Promise<string> => {
     if (!seqno) throw new Error("Sequence number is required to fetch details.");
     
+    // Note: The parentheses in the query often need to be encoded, but encodeURIComponent handles that.
     const query = `(seqno eq ${seqno})`;
-    // Construct URL parameters for the specific detail query
     const params = `type=log&log-type=config&show-detail=yes&query=${encodeURIComponent(query)}&uniq=yes&dir=backward&nlogs=1`;
     
     return await executePanoramaQuery(params);

@@ -45,6 +45,7 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
       setDetailsError(prev => ({ ...prev, [record.id]: '' }));
       
       try {
+          // Uses the exact query format requested
           const xmlResult = await fetchLogDetail(record.seqno);
           setDetailsData(prev => ({ ...prev, [record.id]: xmlResult }));
       } catch (err: any) {
@@ -54,6 +55,14 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
           setLoadingDetails(prev => ({ ...prev, [record.id]: false }));
       }
   };
+
+  if (changes.length === 0) {
+      return (
+          <div className="text-center py-12 text-slate-500 bg-white rounded-xl border border-slate-200 shadow-sm">
+              <p>No changes found matching the filter (cmd=set/edit).</p>
+          </div>
+      );
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ring-1 ring-slate-900/5">
@@ -160,7 +169,7 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                                </div>
                                <div className="prose prose-sm prose-indigo max-w-none text-slate-700 leading-relaxed">
                                   <ReactMarkdown>{aiAnalysis[change.id]}</ReactMarkdown>
-                               </div>
+                                </div>
                             </div>
                           )}
 
