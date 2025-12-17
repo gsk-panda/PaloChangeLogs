@@ -1,0 +1,5 @@
+{
+  "name": "Panorama Change Sentinel",
+  "description": "A dashboard for tracking, visualizing, and analyzing Palo Alto Panorama configuration changes with AI-powered insights.",
+  "requestFramePermissions": []
+}
