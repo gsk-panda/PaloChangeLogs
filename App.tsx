@@ -2,36 +2,43 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChangeLogTable from './components/ChangeLogTable';
 import StatsChart from './components/StatsChart';
-import { Search, Bell, Calendar, AlertTriangle, RefreshCw, ChevronDown, ChevronRight, Clock } from 'lucide-react';
-import { ChangeRecord, DailyStat } from './types';
-import { fetchChangeLogs, calculateDailyStats } from './services/panoramaService';
+import { Search, Bell, Calendar, AlertTriangle, RefreshCw, ChevronDown, ChevronRight, Clock, User, Award } from 'lucide-react';
+import { ChangeRecord, DailyStat, AdminStat } from './types';
+import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
 
 const App: React.FC = () => {
-  const [logs, setLogs] = useState<ChangeRecord[]>([]);
+  const [allLogs, setAllLogs] = useState<ChangeRecord[]>([]);
   const [stats, setStats] = useState<DailyStat[]>([]);
+  const [adminStats, setAdminStats] = useState<AdminStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   
-  // Initialize with today's date in YYYY-MM-DD format
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  const loadData = async (date?: string) => {
+  const loadData = async (targetDate: string) => {
     setLoading(true);
     setError(null);
-    setShowErrorDetails(false);
     try {
-      // Fetch logs specifically for the selected date
-      const fetchedLogs = await fetchChangeLogs(date || selectedDate);
+      // Calculate 7 day range ending at targetDate
+      const end = new Date(targetDate);
+      const start = new Date(targetDate);
+      start.setDate(end.getDate() - 6);
+
+      const startDateStr = start.toISOString().split('T')[0];
+      const endDateStr = end.toISOString().split('T')[0];
+
+      const fetchedLogs = await fetchChangeLogsRange(startDateStr, endDateStr);
       
-      // Calculate stats (though mostly we'll show the current day's focus)
-      const calculatedStats = calculateDailyStats(fetchedLogs);
+      const dailyStats = calculateDailyStatsInRange(fetchedLogs, endDateStr);
+      const admins = calculateAdminStats(fetchedLogs);
       
-      setLogs(fetchedLogs);
-      setStats(calculatedStats);
+      setAllLogs(fetchedLogs);
+      setStats(dailyStats);
+      setAdminStats(admins);
     } catch (err: any) {
       console.error("Failed to load data", err);
-      setError(err.message || "Failed to connect to Panorama. Please check network connectivity.");
+      setError(err.message || "Failed to connect to Panorama.");
     } finally {
       setLoading(false);
     }
@@ -41,8 +48,14 @@ const App: React.FC = () => {
     loadData(selectedDate);
   }, [selectedDate]);
 
-  // Use the logs directly for "Today's" count based on selection
-  const changeCount = logs.length;
+  // Filter logs for the table to ONLY show the selected day
+  const tableLogs = allLogs.filter(log => {
+    const logDate = log.timestamp.split(' ')[0].replace(/\//g, '-');
+    return logDate === selectedDate;
+  });
+  
+  const changeCount = tableLogs.length;
+  const totalWindowChanges = allLogs.length;
   
   const displayDateLabel = new Date(selectedDate).toLocaleDateString('en-US', { 
     month: 'long', 
@@ -61,7 +74,7 @@ const App: React.FC = () => {
             <Search size={20} />
             <input 
               type="text" 
-              placeholder="Search commit logs, objects, or admins..." 
+              placeholder="Search history..." 
               className="bg-transparent border-none focus:ring-0 text-sm w-64 md:w-96 text-slate-800 placeholder-slate-400"
             />
           </div>
@@ -76,15 +89,13 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-auto p-8">
           <div className="max-w-6xl mx-auto space-y-8">
             
-            {/* Title Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Changes for {displayDateLabel}</h1>
-                <p className="text-slate-500 mt-1">Audit of configuration activity on the selected date.</p>
+                <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+                <p className="text-slate-500 mt-1">Reviewing changes for {displayDateLabel}</p>
               </div>
               <div className="flex items-center gap-3">
                  <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 shadow-sm focus-within:ring-2 focus-within:ring-orange-500 transition-all">
@@ -106,86 +117,99 @@ const App: React.FC = () => {
                     <AlertTriangle className="text-red-600" size={20} />
                     <div>
                       <h3 className="text-sm font-bold text-red-800">Connection Error</h3>
-                      <p className="text-sm text-red-600">{error.split('\n')[0]}</p>
+                      <p className="text-sm text-red-600">{error}</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => loadData(selectedDate)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-red-200 text-red-700 text-sm font-medium rounded-lg hover:bg-red-50"
-                  >
+                  <button onClick={() => loadData(selectedDate)} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-red-200 text-red-700 text-sm font-medium rounded-lg hover:bg-red-50">
                     <RefreshCw size={14} /> Retry
                   </button>
-                </div>
-                
-                {/* Expandable Technical Details */}
-                <div>
-                   <button 
-                     onClick={() => setShowErrorDetails(!showErrorDetails)}
-                     className="flex items-center gap-1 text-xs text-red-700 font-semibold hover:underline mt-1"
-                   >
-                     {showErrorDetails ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
-                     Technical Details
-                   </button>
-                   
-                   {showErrorDetails && (
-                     <div className="mt-2 bg-red-100/50 p-3 rounded text-xs font-mono text-red-800 break-all whitespace-pre-wrap">
-                       {error}
-                       <div className="mt-2 pt-2 border-t border-red-200">
-                         <strong>Troubleshooting:</strong><br/>
-                         1. Ensure `HOST` in constants.ts is set to '/panorama-proxy'.<br/>
-                         2. Check if the Vite dev server is running.<br/>
-                         3. Verify the proxy target in vite.config.ts is reachable.<br/>
-                       </div>
-                     </div>
-                   )}
                 </div>
               </div>
             )}
 
-            {/* Stats Overview */}
+            {/* Stats Cards Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 md:col-span-2">
-                <h3 className="text-sm font-semibold text-slate-900 mb-4">Activity Timeline</h3>
+              <StatCard 
+                title={`Changes on ${new Date(selectedDate).toLocaleDateString([], {month: 'short', day: 'numeric'})}`}
+                value={changeCount.toString()} 
+                trend={changeCount > 0 ? "Observed" : "Zero"} 
+                trendUp={changeCount > 0} 
+              />
+              <StatCard 
+                title="7-Day Total Activity" 
+                value={totalWindowChanges.toString()} 
+                trend="Range" 
+                trendUp={true} 
+                neutral
+              />
+              <StatCard 
+                title="Active Admins (7 Days)" 
+                value={adminStats.length.toString()} 
+                trend="Verified" 
+                trendUp={true} 
+                neutral
+              />
+            </div>
+
+            {/* Main Charts Area */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-sm font-semibold text-slate-900">7-Day Activity Timeline</h3>
+                    <span className="text-xs text-slate-400">Past week ending {displayDateLabel}</span>
+                </div>
                 {loading ? (
                   <div className="h-64 bg-slate-100 rounded animate-pulse flex items-center justify-center text-slate-400 text-sm">Loading stats...</div>
-                ) : logs.length === 0 ? (
-                  <div className="h-64 flex flex-col items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
-                    <Clock size={32} className="mb-2 opacity-50"/>
-                    <span className="text-sm font-medium">No configuration changes found for this date</span>
-                  </div>
                 ) : (
                   <StatsChart data={stats} />
                 )}
               </div>
               
-              <div className="space-y-6">
-                 <StatCard 
-                   title="Commits on Selected Date" 
-                   value={changeCount.toString()} 
-                   trend={changeCount > 0 ? "Observed" : "None"} 
-                   trendUp={changeCount > 0} 
-                 />
-                 <StatCard 
-                   title="Pending Review" 
-                   value="0" 
-                   trend="Normal" 
-                   trendUp={true} 
-                   neutral
-                 />
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div className="flex items-center gap-2 mb-6">
+                    <Award size={18} className="text-orange-500" />
+                    <h3 className="text-sm font-semibold text-slate-900">Top Admins (7 Days)</h3>
+                </div>
+                {loading ? (
+                   <div className="space-y-4">
+                     {[1,2,3,4].map(i => <div key={i} className="h-8 bg-slate-50 rounded animate-pulse"></div>)}
+                   </div>
+                ) : adminStats.length === 0 ? (
+                    <div className="h-48 flex items-center justify-center text-slate-400 text-xs">No admin data</div>
+                ) : (
+                    <div className="space-y-4">
+                        {adminStats.slice(0, 5).map((stat, idx) => (
+                            <div key={stat.admin} className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+                                        <User size={14} />
+                                    </div>
+                                    <span className="text-sm font-medium text-slate-700 truncate w-32">{stat.admin}</span>
+                                </div>
+                                <span className="text-xs font-bold px-2 py-1 bg-slate-100 text-slate-600 rounded">
+                                    {stat.changes}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
               </div>
             </div>
 
-            {/* Change Log Table */}
-            <div>
-               <h2 className="text-lg font-bold text-slate-900 mb-4">
-                 {loading ? 'Fetching logs...' : `Log Entries (${changeCount})`}
-               </h2>
+            {/* Log Table for Selected Day */}
+            <div className="space-y-4">
+               <div className="flex items-center justify-between">
+                   <h2 className="text-lg font-bold text-slate-900">
+                     Daily Log Entries
+                   </h2>
+                   <span className="text-sm text-slate-500">{changeCount} entries found</span>
+               </div>
                {loading ? (
                  <div className="space-y-3">
                    {[1,2,3].map(i => <div key={i} className="h-16 bg-white rounded-lg shadow-sm animate-pulse"></div>)}
                  </div>
                ) : (
-                 <ChangeLogTable changes={logs} />
+                 <ChangeLogTable changes={tableLogs} />
                )}
             </div>
 
@@ -196,16 +220,12 @@ const App: React.FC = () => {
   );
 };
 
-// Helper sub-component for stats
-const StatCard: React.FC<{ title: string; value: string; subValue?: string; trend: string; trendUp: boolean; neutral?: boolean }> = ({ title, value, subValue, trend, trendUp, neutral }) => (
-  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-    <h4 className="text-slate-500 text-sm font-medium mb-2">{title}</h4>
+const StatCard: React.FC<{ title: string; value: string; trend: string; trendUp: boolean; neutral?: boolean }> = ({ title, value, trend, trendUp, neutral }) => (
+  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 transition-transform hover:scale-[1.02]">
+    <h4 className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">{title}</h4>
     <div className="flex items-end justify-between">
-      <div>
-        <span className="text-3xl font-bold text-slate-900 block">{value}</span>
-        {subValue && <span className="text-xs text-slate-400 font-medium mt-1 block">{subValue}</span>}
-      </div>
-      <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+      <span className="text-3xl font-bold text-slate-900 block">{value}</span>
+      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
         neutral ? 'bg-slate-100 text-slate-600' :
         trendUp ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
       }`}>

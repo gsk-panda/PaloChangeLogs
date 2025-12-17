@@ -43,3 +43,8 @@ export interface DailyStat {
   date: string;
   changes: number;
 }
+
+export interface AdminStat {
+  admin: string;
+  changes: number;
+}

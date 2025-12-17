@@ -1,4 +1,4 @@
-import { ChangeRecord, DailyStat, ChangeType, ActionType, CommitStatus } from '../types';
+import { ChangeRecord, DailyStat, AdminStat, ChangeType, ActionType, CommitStatus } from '../types';
 import { PANORAMA_CONFIG } from '../constants';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -8,14 +8,12 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
  */
 const pollForJobResults = async (jobId: string): Promise<string> => {
     const { HOST, API_KEY } = PANORAMA_CONFIG;
-    // Note: API Key encoding is critical here.
     const pollUrl = `${HOST}/api/?type=log&action=get&job-id=${jobId}&key=${encodeURIComponent(API_KEY)}`;
     
     let attempts = 0;
     const maxAttempts = 30; 
 
     while (attempts < maxAttempts) {
-        console.log(`[Panorama Service] Polling Job ${jobId} (Attempt ${attempts + 1})...`);
         const response = await fetch(pollUrl, {
              headers: { 'Accept': 'application/xml' }
         });
@@ -26,25 +24,17 @@ const pollForJobResults = async (jobId: string): Promise<string> => {
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, "text/xml");
         
-        // 1. Check for entries (Success)
-        if (doc.querySelectorAll("entry").length > 0) {
-            return text;
-        }
+        if (doc.querySelectorAll("entry").length > 0) return text;
 
-        // 2. Check for Explicit COMPLETE status 
         const jobStatus = doc.querySelector("job status")?.textContent;
-        if (jobStatus === 'COMPLETE' || jobStatus === 'FIN') {
-             return text; 
-        }
+        if (jobStatus === 'COMPLETE' || jobStatus === 'FIN') return text; 
 
-        // 3. Check for API Error
         const respStatus = doc.querySelector("response")?.getAttribute("status");
         if (respStatus === 'error') {
             const msg = doc.querySelector("result msg")?.textContent || "Unknown job error";
             throw new Error(`Job failed: ${msg}`);
         }
 
-        // 4. Wait and retry
         await delay(1000);
         attempts++;
     }
@@ -52,15 +42,11 @@ const pollForJobResults = async (jobId: string): Promise<string> => {
 }
 
 /**
- * Generic helper to execute a Panorama query string, handling async Job IDs if necessary.
+ * Generic helper to execute a Panorama query string
  */
 const executePanoramaQuery = async (queryParams: string): Promise<string> => {
     const { HOST, API_KEY } = PANORAMA_CONFIG;
-    // Construct full URL. 
-    // We add a timestamp to prevent caching.
     const url = `${HOST}/api/?${queryParams}&key=${encodeURIComponent(API_KEY)}&_t=${Date.now()}`;
-
-    console.log(`[Panorama Service] Executing Query: ${url}`);
 
     try {
         const response = await fetch(url, {
@@ -68,33 +54,25 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
         });
         
         if (!response.ok) {
-             if (response.status === 404) throw new Error(`Endpoint not found (404). Check HOST/Proxy config.`);
-             if (response.status === 403) throw new Error(`Access Denied (403). Check API Key.`);
+             if (response.status === 404) throw new Error(`Endpoint not found (404).`);
+             if (response.status === 403) throw new Error(`Access Denied (403).`);
              throw new Error(`API Request Failed: ${response.status}`);
         }
         
         const text = await response.text();
         
-        // Safety check for HTML responses
         if (text.trim().toLowerCase().startsWith('<!doctype html') || text.trim().toLowerCase().startsWith('<html')) {
-             console.error("Received HTML response:", text.substring(0, 500));
-             throw new Error("Received HTML instead of XML. The proxy target may be incorrect, the API key invalid, or the server is returning a login page.");
+             throw new Error("Received HTML instead of XML. Check proxy settings.");
         }
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, "text/xml");
-        
-        // Check if the response is a Job ID
         const jobNode = doc.querySelector("result job");
-        // Ensure it is just a job ID response, not a job status response
         const isJobIdOnly = jobNode && !doc.querySelector("result job status");
         
         if (isJobIdOnly) {
              const jobId = jobNode.textContent?.trim();
-             if (jobId) {
-                 console.log(`[Panorama Service] Async Job ID detected: ${jobId}`);
-                 return await pollForJobResults(jobId);
-             }
+             if (jobId) return await pollForJobResults(jobId);
         }
         
         return text;
@@ -123,11 +101,7 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
   entries.forEach((entry, index) => {
     try {
       const cmd = entry.querySelector("cmd")?.textContent || "unknown";
-
-      // FILTER: Only show "set" or "edit" commands as requested
-      if (cmd !== 'set' && cmd !== 'edit') {
-        return; 
-      }
+      if (cmd !== 'set' && cmd !== 'edit') return; 
 
       const seqno = entry.querySelector("seqno")?.textContent || "";
       const timeStr = entry.querySelector("receive_time")?.textContent || new Date().toISOString();
@@ -139,11 +113,6 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
       else if (path.includes("address") || path.includes("object")) type = ChangeType.OBJECT;
       else if (path.includes("network") || path.includes("interface")) type = ChangeType.NETWORK;
 
-      const action = ActionType.EDIT; // Since we filter for set/edit
-      
-      const description = path;
-      
-      // Extract previews
       const beforePreview = entry.querySelector("before-change-preview")?.textContent || "";
       const afterPreview = entry.querySelector("after-change-preview")?.textContent || "";
 
@@ -154,68 +123,78 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
         admin: admin,
         deviceGroup: 'Global',
         type: type,
-        action: action,
-        description: description,
+        action: ActionType.EDIT,
+        description: path,
         status: CommitStatus.SUCCESS, 
-        diffBefore: beforePreview || 'No previous configuration state provided in summary.',
-        diffAfter: afterPreview || 'No new configuration state provided in summary.', 
+        diffBefore: beforePreview || 'No previous configuration state.',
+        diffAfter: afterPreview || 'No new configuration state.', 
       });
     } catch (e) {
       console.warn("Failed to parse log entry", e);
     }
   });
 
-  return records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return records;
 };
 
 /**
- * Fetches change logs from real Panorama API
- * Supports an optional date parameter (YYYY-MM-DD)
+ * Fetches change logs for a specific date range (start to end inclusive)
  */
-export const fetchChangeLogs = async (date?: string): Promise<ChangeRecord[]> => {
-    let params = 'type=log&log-type=config&nlogs=500'; 
+export const fetchChangeLogsRange = async (startDate: string, endDate: string): Promise<ChangeRecord[]> => {
+    // Increase nlogs as we are fetching a larger window
+    let params = 'type=log&log-type=config&nlogs=2000'; 
     
-    if (date) {
-        // Panorama receive_time query format: YYYY/MM/DD HH:MM:SS
-        const panoramaDate = date.replace(/-/g, '/');
-        const query = `(receive_time geq '${panoramaDate} 00:00:00') and (receive_time leq '${panoramaDate} 23:59:59')`;
-        params += `&query=${encodeURIComponent(query)}`;
-    }
+    const start = startDate.replace(/-/g, '/');
+    const end = endDate.replace(/-/g, '/');
+    const query = `(receive_time geq '${start} 00:00:00') and (receive_time leq '${end} 23:59:59')`;
+    params += `&query=${encodeURIComponent(query)}`;
     
     const xml = await executePanoramaQuery(params);
     return parsePanoramaXML(xml);
 }
 
 /**
- * Fetches detailed log information for a specific sequence number.
- * matches format: query=(seqno eq <id>)&uniq=yes&dir=backward&nlogs=1
+ * Calculates daily statistics for a specific 7-day range
  */
-export const fetchLogDetail = async (seqno: string): Promise<string> => {
-    if (!seqno) throw new Error("Sequence number is required to fetch details.");
-    
-    const query = `(seqno eq ${seqno})`;
-    const params = `type=log&log-type=config&show-detail=yes&query=${encodeURIComponent(query)}&uniq=yes&dir=backward&nlogs=1`;
-    
-    return await executePanoramaQuery(params);
-}
-
-/**
- * Calculates daily statistics from existing logs
- */
-export const calculateDailyStats = (logs: ChangeRecord[]): DailyStat[] => {
+export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: string): DailyStat[] => {
     const statsMap = new Map<string, number>();
+    const endDate = new Date(endDateStr);
+    
+    // Initialize the 7-day map with 0s to ensure consistent chart
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(endDate);
+        d.setDate(endDate.getDate() - (6 - i));
+        const key = d.toISOString().split('T')[0];
+        statsMap.set(key, 0);
+    }
   
     logs.forEach(log => {
-      const dateObj = new Date(log.timestamp);
-      if (!isNaN(dateObj.getTime())) {
-        const dateKey = dateObj.toISOString().split('T')[0];
+      const dateKey = log.timestamp.split(' ')[0].replace(/\//g, '-');
+      if (statsMap.has(dateKey)) {
         statsMap.set(dateKey, (statsMap.get(dateKey) || 0) + 1);
       }
     });
   
-    const sortedStats = Array.from(statsMap.entries())
-      .map(([date, changes]) => ({ date, changes }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  
-    return sortedStats;
+    return Array.from(statsMap.entries()).map(([date, changes]) => ({ date, changes }));
 };
+
+/**
+ * Aggregates change counts per administrator
+ */
+export const calculateAdminStats = (logs: ChangeRecord[]): AdminStat[] => {
+    const adminMap = new Map<string, number>();
+    
+    logs.forEach(log => {
+        adminMap.set(log.admin, (adminMap.get(log.admin) || 0) + 1);
+    });
+
+    return Array.from(adminMap.entries())
+        .map(([admin, changes]) => ({ admin, changes }))
+        .sort((a, b) => b.changes - a.changes);
+}
+
+export const fetchLogDetail = async (seqno: string): Promise<string> => {
+    const query = `(seqno eq ${seqno})`;
+    const params = `type=log&log-type=config&show-detail=yes&query=${encodeURIComponent(query)}&uniq=yes&dir=backward&nlogs=1`;
+    return await executePanoramaQuery(params);
+}
