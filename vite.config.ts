@@ -14,6 +14,7 @@ export default defineConfig({
         changeOrigin: true,
         secure: false, // Accept self-signed certificates from Panorama
         rewrite: (path) => path.replace(/^\/panorama-proxy/, ''),
+        followRedirects: true, // Handle server redirects (e.g. 301/302) automatically
       }
     }
   }

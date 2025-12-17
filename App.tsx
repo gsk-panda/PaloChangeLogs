@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChangeLogTable from './components/ChangeLogTable';
 import StatsChart from './components/StatsChart';
-import { Search, Bell, Calendar, Filter, Bot, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Search, Bell, Calendar, Filter, Bot, AlertTriangle, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 import { ChangeRecord, DailyStat } from './types';
 import { fetchChangeLogs, fetchDailyStats } from './services/panoramaService';
 
@@ -11,10 +11,12 @@ const App: React.FC = () => {
   const [stats, setStats] = useState<DailyStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
+    setShowErrorDetails(false);
     try {
       // Use Promise.all to fetch concurrently, but handle potential errors
       const [fetchedLogs, fetchedStats] = await Promise.all([
@@ -84,20 +86,45 @@ const App: React.FC = () => {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between animate-fadeIn">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="text-red-600" size={20} />
-                  <div>
-                    <h3 className="text-sm font-bold text-red-800">Connection Error</h3>
-                    <p className="text-sm text-red-600">{error}</p>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-2 animate-fadeIn">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="text-red-600" size={20} />
+                    <div>
+                      <h3 className="text-sm font-bold text-red-800">Connection Error</h3>
+                      <p className="text-sm text-red-600">{error.split('\n')[0]}</p>
+                    </div>
                   </div>
+                  <button 
+                    onClick={loadData}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-red-200 text-red-700 text-sm font-medium rounded-lg hover:bg-red-50"
+                  >
+                    <RefreshCw size={14} /> Retry
+                  </button>
                 </div>
-                <button 
-                  onClick={loadData}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-red-200 text-red-700 text-sm font-medium rounded-lg hover:bg-red-50"
-                >
-                  <RefreshCw size={14} /> Retry
-                </button>
+                
+                {/* Expandable Technical Details */}
+                <div>
+                   <button 
+                     onClick={() => setShowErrorDetails(!showErrorDetails)}
+                     className="flex items-center gap-1 text-xs text-red-700 font-semibold hover:underline mt-1"
+                   >
+                     {showErrorDetails ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
+                     Technical Details
+                   </button>
+                   
+                   {showErrorDetails && (
+                     <div className="mt-2 bg-red-100/50 p-3 rounded text-xs font-mono text-red-800 break-all whitespace-pre-wrap">
+                       {error}
+                       <div className="mt-2 pt-2 border-t border-red-200">
+                         <strong>Troubleshooting:</strong><br/>
+                         1. Ensure `HOST` in constants.ts is set to '/panorama-proxy'.<br/>
+                         2. Check if the Vite dev server is running.<br/>
+                         3. Verify the proxy target in vite.config.ts is reachable.<br/>
+                       </div>
+                     </div>
+                   )}
+                </div>
               </div>
             )}
 

@@ -7,6 +7,14 @@ import { PANORAMA_CONFIG } from '../constants';
 const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+  
+  // Check for API errors in XML format
+  const status = xmlDoc.querySelector("response")?.getAttribute("status");
+  if (status === "error") {
+    const msg = xmlDoc.querySelector("result msg")?.textContent || "Unknown API Error";
+    throw new Error(`Panorama API returned error: ${msg}`);
+  }
+
   const entries = xmlDoc.querySelectorAll("entry");
   const records: ChangeRecord[] = [];
 
@@ -17,7 +25,6 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
       const admin = entry.querySelector("admin")?.textContent || "system";
       const cmd = entry.querySelector("cmd")?.textContent || "unknown";
       const path = entry.querySelector("path")?.textContent || "";
-      const typeStr = entry.querySelector("type")?.textContent || "";
       
       // Map to Application Types
       let type = ChangeType.SYSTEM;
@@ -33,8 +40,6 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
       const description = `Command '${cmd}' executed on path: ${path.substring(0, 50)}...`;
 
       // Simulating Diff (Panorama Config Logs don't always return full diff in the summary view)
-      // In a real production app, we would make a secondary call to 'show config diff' based on versions.
-      // Here we format the XML content we have as the "After" state.
       const rawContent = new XMLSerializer().serializeToString(entry);
 
       records.push({
@@ -45,7 +50,7 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
         type: type,
         action: action,
         description: description,
-        status: CommitStatus.SUCCESS, // Config logs imply successful entry
+        status: CommitStatus.SUCCESS, 
         diffBefore: '<!-- Previous configuration state not available in summary log -->',
         diffAfter: rawContent, 
       });
@@ -62,28 +67,54 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
  */
 export const fetchChangeLogs = async (): Promise<ChangeRecord[]> => {
   const { HOST, API_KEY } = PANORAMA_CONFIG;
-  // Query for config logs, last 50 entries
+  
+  // Use 'key' query parameter which is standard for most PAN-OS versions XML API
+  // Using encodeURIComponent is crucial for keys with special chars
   const url = `${HOST}/api/?type=log&log-type=config&nlogs=50&key=${encodeURIComponent(API_KEY)}`;
+
+  console.log(`[Panorama Service] Fetching URL: ${url}`);
 
   try {
     const response = await fetch(url, {
       method: 'GET',
+      // Removed custom headers to avoid preflight OPTIONS issues with some proxies
     });
 
     if (!response.ok) {
-      throw new Error(`Panorama API Error: ${response.status} ${response.statusText}`);
+      if (response.status === 404) {
+         throw new Error(`Endpoint not found (404). The proxy path '${HOST}' might be misconfigured.`);
+      }
+      if (response.status === 403) {
+         throw new Error(`Access Denied (403). Check if the API Key has correct permissions.`);
+      }
+      throw new Error(`Panorama API HTTP Error: ${response.status} ${response.statusText}`);
     }
 
     const text = await response.text();
-    // Validate that we actually got XML back and not an HTML error page from a proxy/firewall
-    if (text.trim().toLowerCase().startsWith('<!doctype html')) {
-       throw new Error("Received HTML instead of XML. Check authentication or proxy settings.");
+    
+    // DEBUG: Log the start of response
+    console.log("[Panorama Service] Response start:", text.substring(0, 100));
+
+    // Validate that we actually got XML back
+    if (text.trim().toLowerCase().startsWith('<!doctype html') || text.trim().toLowerCase().startsWith('<html')) {
+       // Check if we accidentally got our own index.html (common proxy misconfig)
+       if (text.includes('id="root"') || text.includes('src="/index.tsx"')) {
+           throw new Error("CONFIGURATION ERROR: The app fetched its own index.html instead of the API. This usually means HOST in constants.ts is set to a URL that does not match the 'proxy' in vite.config.ts.");
+       }
+
+       // Try to extract title tag to see what page we hit
+       const titleMatch = text.match(/<title>(.*?)<\/title>/i);
+       const title = titleMatch ? titleMatch[1] : "Unknown Page";
+       
+       // Include a snippet of the HTML body for debugging
+       const snippet = text.substring(0, 200).replace(/</g, '&lt;');
+       
+       throw new Error(`Received HTML instead of XML (Page Title: "${title}"). \nRaw start: ${snippet}`);
     }
     
     return parsePanoramaXML(text);
 
   } catch (error) {
-    // Propagate error to allow UI to show failure state
     console.error("Failed to fetch from Panorama:", error);
     throw error;
   }
@@ -91,7 +122,6 @@ export const fetchChangeLogs = async (): Promise<ChangeRecord[]> => {
 
 /**
  * Fetches daily statistics.
- * Aggregates data from the logs since Panorama lacks a direct stats API.
  */
 export const fetchDailyStats = async (): Promise<DailyStat[]> => {
   try {
@@ -100,10 +130,9 @@ export const fetchDailyStats = async (): Promise<DailyStat[]> => {
     const statsMap = new Map<string, number>();
   
     logs.forEach(log => {
-      // Parse standard Panorama date format "2023/10/26 14:00:00"
       const dateObj = new Date(log.timestamp);
       if (!isNaN(dateObj.getTime())) {
-        const dateKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dateKey = dateObj.toISOString().split('T')[0];
         statsMap.set(dateKey, (statsMap.get(dateKey) || 0) + 1);
       }
     });
@@ -115,6 +144,6 @@ export const fetchDailyStats = async (): Promise<DailyStat[]> => {
     return sortedStats;
   } catch (error) {
     console.error("Error generating stats:", error);
-    throw error;
+    return [];
   }
 };
