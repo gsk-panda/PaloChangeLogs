@@ -39,9 +39,9 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const end = getLocalDate(targetDate);
-      const start = new Date(end);
-      start.setDate(end.getDate() - 6);
+      const [year, month, day] = targetDate.split('-').map(Number);
+      const end = new Date(year, month - 1, day);
+      const start = new Date(year, month - 1, day - 6);
 
       const startDateStr = formatDateForAPI(start);
       const endDateStr = formatDateForAPI(end);

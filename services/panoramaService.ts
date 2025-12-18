@@ -170,12 +170,13 @@ const formatDateForAPI = (date: Date): string => {
 
 export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: string): DailyStat[] => {
     const statsMap = new Map<string, number>();
-    const endDate = getLocalDate(endDateStr);
+    const [endYear, endMonth, endDay] = endDateStr.split('-').map(Number);
+    const endDate = new Date(endYear, endMonth - 1, endDay);
     
     // Initialize the 7-day map with 0s to ensure consistent chart
     for (let i = 0; i < 7; i++) {
-        const d = new Date(endDate);
-        d.setDate(endDate.getDate() - (6 - i));
+        const daysToSubtract = 6 - i;
+        const d = new Date(endYear, endMonth - 1, endDay - daysToSubtract);
         const key = formatDateForAPI(d);
         statsMap.set(key, 0);
     }
