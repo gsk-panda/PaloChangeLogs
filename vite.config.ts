@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   
-  const panoramaHost = env.PANORAMA_HOST || 'panorama.officeours.com';
+  const panoramaHost = env.PANORAMA_HOST || '10.1.0.100';
   const panoramaUrl = panoramaHost.startsWith('http') ? panoramaHost : `https://${panoramaHost}`;
 
   return {
