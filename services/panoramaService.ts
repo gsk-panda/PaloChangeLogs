@@ -156,11 +156,6 @@ export const fetchChangeLogsRange = async (startDate: string, endDate: string): 
 /**
  * Calculates daily statistics for a specific 7-day range
  */
-const getLocalDate = (dateStr: string): Date => {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day);
-};
-
 const formatDateForAPI = (date: Date): string => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -171,7 +166,6 @@ const formatDateForAPI = (date: Date): string => {
 export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: string): DailyStat[] => {
     const statsMap = new Map<string, number>();
     const [endYear, endMonth, endDay] = endDateStr.split('-').map(Number);
-    const endDate = new Date(endYear, endMonth - 1, endDay);
     
     // Initialize the 7-day map with 0s to ensure consistent chart
     for (let i = 0; i < 7; i++) {
