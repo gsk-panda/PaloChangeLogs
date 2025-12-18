@@ -58,16 +58,20 @@ fi
 echo ""
 echo "Step 6: Creating installation directory..."
 mkdir -p "$INSTALL_DIR"
-chown "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
 echo ""
 echo "Step 7: Cloning repository..."
 if [ -d "$INSTALL_DIR/.git" ]; then
     echo "Repository already exists. Updating..."
-    sudo -u "$SERVICE_USER" bash -c "cd $INSTALL_DIR && git pull"
+    cd "$INSTALL_DIR"
+    git pull
 else
-    sudo -u "$SERVICE_USER" git clone "$REPO_URL" "$INSTALL_DIR"
+    git clone "$REPO_URL" "$INSTALL_DIR"
 fi
+
+echo ""
+echo "Step 7a: Setting ownership of installation directory..."
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
 echo ""
 echo "Step 8: Installing npm dependencies..."
