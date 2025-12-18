@@ -13,19 +13,38 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const getTodayLocalDate = (): string => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayLocalDate());
+
+  const getLocalDate = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  const formatDateForAPI = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const loadData = async (targetDate: string) => {
     setLoading(true);
     setError(null);
     try {
-      // Calculate 7 day range ending at targetDate
-      const end = new Date(targetDate);
-      const start = new Date(targetDate);
+      const end = getLocalDate(targetDate);
+      const start = new Date(end);
       start.setDate(end.getDate() - 6);
 
-      const startDateStr = start.toISOString().split('T')[0];
-      const endDateStr = end.toISOString().split('T')[0];
+      const startDateStr = formatDateForAPI(start);
+      const endDateStr = formatDateForAPI(end);
 
       const fetchedLogs = await fetchChangeLogsRange(startDateStr, endDateStr);
       
@@ -59,7 +78,7 @@ const App: React.FC = () => {
   const changeCount = tableLogs.length;
   const totalWindowChanges = allLogs.length;
   
-  const displayDateLabel = new Date(selectedDate).toLocaleDateString('en-US', { 
+  const displayDateLabel = getLocalDate(selectedDate).toLocaleDateString('en-US', { 
     month: 'long', 
     day: 'numeric', 
     year: 'numeric' 
@@ -136,7 +155,7 @@ const App: React.FC = () => {
             {/* Stats Cards Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard 
-                title={`Changes on ${new Date(selectedDate).toLocaleDateString([], {month: 'short', day: 'numeric'})}`}
+                title={`Changes on ${getLocalDate(selectedDate).toLocaleDateString([], {month: 'short', day: 'numeric'})}`}
                 value={changeCount.toString()} 
                 trend={changeCount > 0 ? "Observed" : "Zero"} 
                 trendUp={changeCount > 0} 
