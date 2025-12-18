@@ -56,13 +56,24 @@ const StatsChart: React.FC<StatsChartProps> = ({ data, selectedDate, onDateSelec
             }}
           />
           <Bar dataKey="changes" radius={[4, 4, 0, 0]} barSize={30}>
-            {data.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={entry.date === selectedDate ? '#ea580c' : '#f97316'} 
-                className="transition-all duration-300"
-              />
-            ))}
+            {data.map((entry, index) => {
+              const normalizeDate = (dateStr: string): string => {
+                return dateStr ? dateStr.split('T')[0] : '';
+              };
+              const entryDate = normalizeDate(entry.date);
+              const selectedDateNormalized = normalizeDate(selectedDate || '');
+              const isSelected = entryDate === selectedDateNormalized;
+              return (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={isSelected ? '#ea580c' : '#f97316'} 
+                  stroke={isSelected ? '#c2410c' : 'none'}
+                  strokeWidth={isSelected ? 2 : 0}
+                  className="transition-all duration-300"
+                  style={{ opacity: isSelected ? 1 : 0.7 }}
+                />
+              );
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

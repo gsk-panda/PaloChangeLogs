@@ -47,9 +47,12 @@ const App: React.FC = () => {
     loadData(selectedDate);
   }, [selectedDate]);
 
-  // Filter logs for the table to ONLY show the selected day
+  const normalizeDate = (dateStr: string): string => {
+    return dateStr.replace(/\//g, '-');
+  };
+
   const tableLogs = allLogs.filter(log => {
-    const logDate = log.timestamp.split(' ')[0].replace(/\//g, '-');
+    const logDate = normalizeDate(log.timestamp.split(' ')[0]);
     return logDate === selectedDate;
   });
   
