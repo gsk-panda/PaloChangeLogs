@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "tsc && vite build",
+    "build": "NODE_OPTIONS=--openssl-legacy-provider tsc && NODE_OPTIONS=--openssl-legacy-provider vite build",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -27,25 +27,34 @@ dnf install -y git curl wget tar gzip
 
 echo ""
 echo "Step 3: Installing Node.js ${NODE_VERSION}.x..."
-if ! command -v node &> /dev/null; then
-    echo "Node.js not found. Installing Node.js ${NODE_VERSION}.x..."
-    curl -fsSL https://rpm.nodesource.com/setup_${NODE_VERSION}.x | bash -
-    dnf install -y nodejs
-else
+INSTALLED_VERSION=""
+if command -v node &> /dev/null; then
     INSTALLED_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-    if [ "$INSTALLED_VERSION" -lt "$NODE_VERSION" ]; then
+    echo "Current Node.js version: $(node -v)"
+fi
+
+if [ -z "$INSTALLED_VERSION" ] || [ "$INSTALLED_VERSION" -lt "$NODE_VERSION" ]; then
+    if [ -n "$INSTALLED_VERSION" ]; then
         echo "Node.js version $INSTALLED_VERSION detected. Upgrading to ${NODE_VERSION}.x..."
-        curl -fsSL https://rpm.nodesource.com/setup_${NODE_VERSION}.x | bash -
-        dnf install -y nodejs
     else
-        echo "Node.js $(node -v) is already installed (meets requirement of ${NODE_VERSION}.x+)"
+        echo "Node.js not found. Installing Node.js ${NODE_VERSION}.x..."
     fi
+    curl -fsSL https://rpm.nodesource.com/setup_${NODE_VERSION}.x | bash -
+    dnf install -y nodejs --allowerasing
+    hash -r
+else
+    echo "Node.js $(node -v) is already installed (meets requirement of ${NODE_VERSION}.x+)"
 fi
 
 echo ""
 echo "Step 4: Verifying Node.js and npm installation..."
 node -v
 npm -v
+ACTUAL_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$ACTUAL_VERSION" -lt "$NODE_VERSION" ]; then
+    echo "WARNING: Node.js version is still below ${NODE_VERSION}.x. Current version: $(node -v)"
+    echo "You may need to restart the shell or check your PATH."
+fi
 
 echo ""
 echo "Step 5: Creating service user..."
@@ -119,6 +128,7 @@ fi
 echo ""
 echo "Step 10: Building application..."
 cd "$INSTALL_DIR"
+export NODE_OPTIONS="--openssl-legacy-provider"
 npm run build
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
