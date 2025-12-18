@@ -39,7 +39,8 @@ const StatsChart: React.FC<StatsChartProps> = ({ data, selectedDate, onDateSelec
             axisLine={false}
             tickLine={false}
             tickFormatter={(value) => {
-              const d = new Date(value);
+              const [year, month, day] = value.split('-').map(Number);
+              const d = new Date(year, month - 1, day);
               return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
             }}
           />
@@ -52,7 +53,9 @@ const StatsChart: React.FC<StatsChartProps> = ({ data, selectedDate, onDateSelec
             cursor={{ fill: '#f1f5f9' }}
             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
             labelFormatter={(label) => {
-              return new Date(label).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+              const [year, month, day] = label.split('-').map(Number);
+              const d = new Date(year, month - 1, day);
+              return d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
             }}
           />
           <Bar dataKey="changes" radius={[4, 4, 0, 0]} barSize={30}>

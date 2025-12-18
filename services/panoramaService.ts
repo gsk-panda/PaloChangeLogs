@@ -168,10 +168,15 @@ export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: str
     const [endYear, endMonth, endDay] = endDateStr.split('-').map(Number);
     
     // Initialize the 7-day map with 0s to ensure consistent chart
+    // Calculate dates directly without Date object manipulation to avoid timezone issues
     for (let i = 0; i < 7; i++) {
         const daysToSubtract = 6 - i;
-        const d = new Date(endYear, endMonth - 1, endDay - daysToSubtract);
-        const key = formatDateForAPI(d);
+        const targetDay = endDay - daysToSubtract;
+        const d = new Date(endYear, endMonth - 1, targetDay);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const key = `${year}-${month}-${day}`;
         statsMap.set(key, 0);
     }
   
