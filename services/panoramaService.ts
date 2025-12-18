@@ -180,14 +180,30 @@ export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: str
         statsMap.set(key, 0);
     }
   
+    const normalizeLogDate = (timestamp: string): string => {
+      if (!timestamp) return '';
+      const datePart = timestamp.split(' ')[0].trim();
+      const normalized = datePart.replace(/\//g, '-');
+      const parts = normalized.split('-');
+      if (parts.length === 3) {
+        const [year, month, day] = parts;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      return normalized;
+    };
+
     logs.forEach(log => {
-      const dateKey = log.timestamp.split(' ')[0].replace(/\//g, '-');
+      const dateKey = normalizeLogDate(log.timestamp);
       if (statsMap.has(dateKey)) {
         statsMap.set(dateKey, (statsMap.get(dateKey) || 0) + 1);
       }
     });
-  
-    return Array.from(statsMap.entries()).map(([date, changes]) => ({ date, changes }));
+
+    const stats = Array.from(statsMap.entries())
+      .map(([date, changes]) => ({ date, changes }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    
+    return stats;
 };
 
 /**
