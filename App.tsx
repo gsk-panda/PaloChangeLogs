@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChangeLogTable from './components/ChangeLogTable';
 import StatsChart from './components/StatsChart';
-import { Search, Bell, Calendar, AlertTriangle, RefreshCw, ChevronDown, ChevronRight, Clock, User, Award } from 'lucide-react';
+import { Search, Bell, Calendar, AlertTriangle, RefreshCw, User, Award } from 'lucide-react';
 import { ChangeRecord, DailyStat, AdminStat } from './types';
 import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
 
@@ -12,7 +12,6 @@ const App: React.FC = () => {
   const [adminStats, setAdminStats] = useState<AdminStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
   
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
@@ -187,7 +186,7 @@ const App: React.FC = () => {
                     <div className="h-48 flex items-center justify-center text-slate-400 text-xs">No admin data</div>
                 ) : (
                     <div className="space-y-4">
-                        {adminStats.slice(0, 5).map((stat, idx) => (
+                        {adminStats.slice(0, 5).map((stat) => (
                             <div key={stat.admin} className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
