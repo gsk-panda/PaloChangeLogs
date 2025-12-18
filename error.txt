@@ -1,6 +1,48 @@
-Step 6: Creating installation directory...
-
 Step 7: Cloning repository...
 Cloning into '/opt/palo-changelogs'...
-fatal: cannot copy '/usr/share/git-core/templates/hooks/fsmonitor-watchman.sample' to '/opt/palo-changelogs/.git/hooks/fsmonitor-watchman.sample': Operation not permitted
-[paweblog01p:121135-adm]-> 
+remote: Enumerating objects: 141, done.
+remote: Counting objects: 100% (141/141), done.
+remote: Compressing objects: 100% (132/132), done.
+remote: Total 141 (delta 78), reused 20 (delta 7), pack-reused 0 (from 0)
+Receiving objects: 100% (141/141), 49.99 KiB | 1.06 MiB/s, done.
+Resolving deltas: 100% (78/78), done.
+
+Step 7a: Setting ownership of installation directory...
+
+Step 8: Installing npm dependencies...
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@google/genai@1.34.0',
+npm warn EBADENGINE   required: { node: '>=20.0.0' },
+npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm error code 1
+npm error path /opt/palo-changelogs/node_modules/esbuild
+npm error command failed
+npm error command sh -c node install.js
+npm error node:internal/errors:496
+npm error     ErrorCaptureStackTrace(err);
+npm error     ^
+npm error
+npm error <ref *1> Error: spawnSync /opt/palo-changelogs/node_modules/esbuild/bin/esbuild EPERM
+npm error     at Object.spawnSync (node:internal/child_process:1117:20)
+npm error     at spawnSync (node:child_process:876:24)
+npm error     at Object.execFileSync (node:child_process:919:15)
+npm error     at validateBinaryVersion (/opt/palo-changelogs/node_modules/esbuild/install.js:99:28)
+npm error     at /opt/palo-changelogs/node_modules/esbuild/install.js:283:5 {
+npm error   errno: -1,
+npm error   code: 'EPERM',
+npm error   syscall: 'spawnSync /opt/palo-changelogs/node_modules/esbuild/bin/esbuild',
+npm error   path: '/opt/palo-changelogs/node_modules/esbuild/bin/esbuild',
+npm error   spawnargs: [ '--version' ],
+npm error   error: [Circular *1],
+npm error   status: null,
+npm error   signal: null,
+npm error   output: null,
+npm error   pid: 0,
+npm error   stdout: null,
+npm error   stderr: null
+npm error }
+npm error
+npm error Node.js v18.20.8
+npm error A complete log of this run can be found in: /opt/palo-changelogs/.npm/_logs/2025-12-18T02_40_30_614Z-debug-0.log
