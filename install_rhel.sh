@@ -75,25 +75,60 @@ cd "$INSTALL_DIR"
 sudo -u "$SERVICE_USER" npm install
 
 echo ""
-echo "Step 9: Creating environment file..."
+echo "Step 9: Configuring Panorama and API keys..."
 ENV_FILE="$INSTALL_DIR/.env.local"
+
 if [ ! -f "$ENV_FILE" ]; then
+    echo ""
+    echo "Please provide the following configuration:"
+    echo ""
+    
+    read -p "Enter Panorama IP or hostname (e.g., panorama.example.com or 192.168.1.1): " PANORAMA_HOST
+    while [ -z "$PANORAMA_HOST" ]; do
+        echo "Panorama host cannot be empty."
+        read -p "Enter Panorama IP or hostname: " PANORAMA_HOST
+    done
+    
+    read -p "Enter Panorama API key: " PANORAMA_API_KEY
+    while [ -z "$PANORAMA_API_KEY" ]; do
+        echo "Panorama API key cannot be empty."
+        read -p "Enter Panorama API key: " PANORAMA_API_KEY
+    done
+    
+    read -p "Enter Gemini API key (press Enter to skip and configure later): " GEMINI_API_KEY
+    
     cat > "$ENV_FILE" << EOF
-API_KEY=your_gemini_api_key_here
+PANORAMA_HOST=$PANORAMA_HOST
+PANORAMA_API_KEY=$PANORAMA_API_KEY
+API_KEY=${GEMINI_API_KEY:-your_gemini_api_key_here}
 EOF
     chown "$SERVICE_USER:$SERVICE_USER" "$ENV_FILE"
     chmod 600 "$ENV_FILE"
-    echo "Created $ENV_FILE - Please update with your Gemini API key"
+    echo "Created $ENV_FILE with configuration"
 else
     echo "Environment file already exists at $ENV_FILE"
+    echo "Skipping configuration prompts. Edit the file manually if needed."
 fi
 
 echo ""
 echo "Step 10: Building application..."
-sudo -u "$SERVICE_USER" npm run build
+sudo -u "$SERVICE_USER" bash -c "cd $INSTALL_DIR && npm run build"
 
 echo ""
 echo "Step 11: Creating systemd service..."
+WRAPPER_SCRIPT="$INSTALL_DIR/start-service.sh"
+cat > "$WRAPPER_SCRIPT" << 'WRAPPER_EOF'
+#!/bin/bash
+cd /opt/palo-changelogs
+source .env.local
+export PANORAMA_HOST
+export PANORAMA_API_KEY
+export API_KEY
+npm run preview
+WRAPPER_EOF
+chmod +x "$WRAPPER_SCRIPT"
+chown "$SERVICE_USER:$SERVICE_USER" "$WRAPPER_SCRIPT"
+
 SERVICE_FILE="/etc/systemd/system/palo-changelogs.service"
 cat > "$SERVICE_FILE" << EOF
 [Unit]
@@ -105,8 +140,7 @@ Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$INSTALL_DIR
 Environment="NODE_ENV=production"
-EnvironmentFile=$INSTALL_DIR/.env.local
-ExecStart=/usr/bin/npm run preview
+ExecStart=$WRAPPER_SCRIPT
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -127,9 +161,13 @@ echo "Installation directory: $INSTALL_DIR"
 echo "Service user: $SERVICE_USER"
 echo ""
 echo "Next steps:"
-echo "1. Edit $ENV_FILE and set your Gemini API key:"
-echo "   API_KEY=your_actual_api_key_here"
-echo ""
+if [ ! -f "$ENV_FILE" ]; then
+    echo "1. Edit $ENV_FILE and configure:"
+    echo "   - PANORAMA_HOST=your_panorama_host"
+    echo "   - PANORAMA_API_KEY=your_panorama_api_key"
+    echo "   - API_KEY=your_gemini_api_key"
+    echo ""
+fi
 echo "2. Start the service:"
 echo "   systemctl start palo-changelogs"
 echo ""
