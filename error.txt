@@ -1,47 +1,19 @@
-npm warn EBADENGINE   required: { node: '>=20.0.0' },
-npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
-npm warn EBADENGINE }
-npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
-
-added 316 packages, and audited 317 packages in 16s
-
-110 packages are looking for funding
-  run `npm fund` for details
-
-2 moderate severity vulnerabilities
-
-To address all issues (including breaking changes), run:
-  npm audit fix --force
-
-Run `npm audit` for details.
-
-Step 9: Configuring Panorama and API keys...
-
-Please provide the following configuration:
-
-Enter Panorama IP or hostname (e.g., panorama.example.com or 192.168.1.1): 10.1.0.100
-Enter Panorama API key: LUFRPT1Rd0kzTmtpWUpGWENCOGpBMUJQRE4xV2NVNEE9bkhyQlliV2hlVHpGcjdHbWZTdVdweTVIK0IrbldBUjFGbEJKMFI5TUd5Q3E1VkVrakJmK3p1bkcwN2dobjM4cHFQSzJYTnA5RmRZek8xcit0bzNRL2c9PQ==
-Enter Gemini API key (press Enter to skip and configure later): 
-Created /opt/palo-changelogs/.env.local with configuration
-
 Step 10: Building application...
 
 > panorama-change-sentinel@1.0.0 build
-> tsc && vite build
+> NODE_OPTIONS=--openssl-legacy-provider tsc && NODE_OPTIONS=--openssl-legacy-provider vite build
 
-vite v5.4.21 building for production...
-✓ 3 modules transformed.
-x Build failed in 674ms
-error during build:
-[vite:css] [postcss] error:0308010C:digital envelope routines::unsupported
-file: /opt/palo-changelogs/index.css:undefined:NaN
-    at new Hash (node:internal/crypto/hash:69:19)
-    at createHash (node:crypto:136:10)
-    at md5 (/opt/palo-changelogs/node_modules/jiti/dist/jiti.js:1:242165)
-    at opts.transform.Object.assign.Object.assign.Object.assign.legacy (/opt/palo-changelogs/node_modules/jiti/dist/jiti.js:1:246878)
-    at transform (/opt/palo-changelogs/node_modules/jiti/dist/jiti.js:1:247408)
-    at evalModule (/opt/palo-changelogs/node_modules/jiti/dist/jiti.js:1:250828)
-    at jiti (/opt/palo-changelogs/node_modules/jiti/dist/jiti.js:1:249841)
-    at /opt/palo-changelogs/node_modules/tailwindcss/lib/lib/load-config.js:53:30
-    at loadConfig (/opt/palo-changelogs/node_modules/tailwindcss/lib/lib/load-config.js:55:6)
-    at getTailwindConfig (/opt/palo-changelogs/node_modules/tailwindcss/lib/lib/setupTrackingContext.js:74:116)
+services/panoramaService.ts:159:7 - error TS6133: 'getLocalDate' is declared but its value is never read.
+
+159 const getLocalDate = (dateStr: string): Date => {
+          ~~~~~~~~~~~~
+
+services/panoramaService.ts:174:11 - error TS6133: 'endDate' is declared but its value is never read.
+
+174     const endDate = new Date(endYear, endMonth - 1, endDay);
+              ~~~~~~~
+
+
+Found 2 errors in the same file, starting at: services/panoramaService.ts:159
+
+[paweblog01d:121135-adm]-> 
