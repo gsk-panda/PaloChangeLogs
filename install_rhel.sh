@@ -5,7 +5,7 @@ set -e
 REPO_URL="https://github.com/gsk-panda/PaloChangeLogs.git"
 INSTALL_DIR="/opt/palo-changelogs"
 SERVICE_USER="palo-changelogs"
-NODE_VERSION="18"
+NODE_VERSION="20"
 
 echo "=========================================="
 echo "Palo ChangeLogs Installation Script"
@@ -28,6 +28,7 @@ dnf install -y git curl wget tar gzip
 echo ""
 echo "Step 3: Installing Node.js ${NODE_VERSION}.x..."
 if ! command -v node &> /dev/null; then
+    echo "Node.js not found. Installing Node.js ${NODE_VERSION}.x..."
     curl -fsSL https://rpm.nodesource.com/setup_${NODE_VERSION}.x | bash -
     dnf install -y nodejs
 else
@@ -37,7 +38,7 @@ else
         curl -fsSL https://rpm.nodesource.com/setup_${NODE_VERSION}.x | bash -
         dnf install -y nodejs
     else
-        echo "Node.js $(node -v) is already installed"
+        echo "Node.js $(node -v) is already installed (meets requirement of ${NODE_VERSION}.x+)"
     fi
 fi
 
@@ -76,7 +77,8 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 echo ""
 echo "Step 8: Installing npm dependencies..."
 cd "$INSTALL_DIR"
-sudo -u "$SERVICE_USER" npm install
+npm install
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
 echo ""
 echo "Step 9: Configuring Panorama and API keys..."
@@ -116,7 +118,9 @@ fi
 
 echo ""
 echo "Step 10: Building application..."
-sudo -u "$SERVICE_USER" bash -c "cd $INSTALL_DIR && npm run build"
+cd "$INSTALL_DIR"
+npm run build
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
 echo ""
 echo "Step 11: Creating systemd service..."
