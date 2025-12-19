@@ -29,8 +29,8 @@ const getMockLogsXML = (_startDate: string) => {
                 <admin>${Math.random() > 0.6 ? 'admin-jdoe' : 'admin-ssmith'}</admin>
                 <path>${path}</path>
                 <cmd>${Math.random() > 0.8 ? 'add' : 'edit'}</cmd>
-                <before-change-preview>action: deny; service: application-default; (Brief Preview)</before-change-preview>
-                <after-change-preview>action: allow; service: any; profile-setting: default; (Brief Preview)</after-change-preview>
+                <before-change-detail>action: deny; service: application-default; (Brief Preview)</before-change-detail>
+                <after-change-detail>action: allow; service: any; profile-setting: default; (Brief Preview)</after-change-detail>
             </entry>`;
         });
     }).join('');
@@ -133,7 +133,7 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
             <response status="success">
                 <result>
                     <entry>
-                        <before-change-preview>
+                        <before-change-detail>
 # Security Rule "Block-All"
 set security rules Block-All from any
 set security rules Block-All to any
@@ -141,8 +141,8 @@ set security rules Block-All source any
 set security rules Block-All destination any
 set security rules Block-All service application-default
 set security rules Block-All action deny
-                        </before-change-preview>
-                        <after-change-preview>
+                        </before-change-detail>
+                        <after-change-detail>
 # Security Rule "Block-All" (Modified)
 set security rules Block-All from any
 set security rules Block-All to any
@@ -151,7 +151,7 @@ set security rules Block-All destination any
 set security rules Block-All service any
 set security rules Block-All action allow
 set security rules Block-All profile-setting default
-                        </after-change-preview>
+                        </after-change-detail>
                         <xml_blob><![CDATA[<config><security><rules><entry name="mock"><action>allow</action></entry></rules></security></config>]]></xml_blob>
                     </entry>
                 </result>
@@ -190,8 +190,8 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
       else if (path.includes("address") || path.includes("object")) type = ChangeType.OBJECT;
       else if (path.includes("network") || path.includes("interface")) type = ChangeType.NETWORK;
 
-      const beforePreview = entry.querySelector("before-change-preview")?.textContent || "";
-      const afterPreview = entry.querySelector("after-change-preview")?.textContent || "";
+      const beforePreview = entry.querySelector("before-change-detail")?.textContent || "";
+      const afterPreview = entry.querySelector("after-change-detail")?.textContent || "";
 
       records.push({
         id: `log-${seqno || index}-${Date.now()}`,
@@ -284,8 +284,8 @@ export const parseDetailedXml = (xml: string): { before: string, after: string }
     
     if (!entry) return { before: '', after: '' };
     
-    const before = entry.querySelector("before-change-preview")?.textContent?.trim() || "";
-    const after = entry.querySelector("after-change-preview")?.textContent?.trim() || "";
+    const before = entry.querySelector("before-change-detail")?.textContent?.trim() || "";
+    const after = entry.querySelector("after-change-detail")?.textContent?.trim() || "";
     
     return { before, after };
 }
