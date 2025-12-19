@@ -19,64 +19,60 @@ const StatsChart: React.FC<StatsChartProps> = ({ data, selectedDate, onDateSelec
   };
 
   return (
-    <div className="h-64 w-full">
+    <div className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
           onClick={handleClick}
           margin={{
-            top: 5,
-            right: 30,
-            left: 20,
-            bottom: 5,
+            top: 10,
+            right: 10,
+            left: -20,
+            bottom: 0,
           }}
           style={{ cursor: 'pointer' }}
         >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
           <XAxis 
             dataKey="date" 
-            tick={{ fill: '#64748b', fontSize: 10 }} 
+            tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 500 }} 
             axisLine={false}
             tickLine={false}
+            tickMargin={10}
             tickFormatter={(value) => {
-              const [year, month, day] = value.split('-').map(Number);
-              const d = new Date(year, month - 1, day);
+              const d = new Date(value);
               return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
             }}
           />
           <YAxis 
-            tick={{ fill: '#64748b', fontSize: 12 }} 
+            tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 500 }} 
             axisLine={false}
             tickLine={false}
           />
           <Tooltip 
-            cursor={{ fill: '#f1f5f9' }}
-            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+            cursor={{ fill: '#1e293b' }}
+            contentStyle={{ 
+              borderRadius: '8px', 
+              border: '1px solid #334155', 
+              backgroundColor: '#0f172a',
+              color: '#e2e8f0',
+              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.5)',
+              padding: '8px 12px',
+              fontSize: '12px'
+            }}
+            itemStyle={{ color: '#e2e8f0' }}
             labelFormatter={(label) => {
-              const [year, month, day] = label.split('-').map(Number);
-              const d = new Date(year, month - 1, day);
-              return d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+              return new Date(label).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
             }}
           />
-          <Bar dataKey="changes" radius={[4, 4, 0, 0]} barSize={30}>
-            {data.map((entry, index) => {
-              const normalizeDate = (dateStr: string): string => {
-                return dateStr ? dateStr.split('T')[0] : '';
-              };
-              const entryDate = normalizeDate(entry.date);
-              const selectedDateNormalized = normalizeDate(selectedDate || '');
-              const isSelected = entryDate === selectedDateNormalized;
-              return (
-                <Cell 
-                  key={`cell-${index}`} 
-                  fill={isSelected ? '#ea580c' : '#f97316'} 
-                  stroke={isSelected ? '#c2410c' : 'none'}
-                  strokeWidth={isSelected ? 2 : 0}
-                  className="transition-all duration-300"
-                  style={{ opacity: isSelected ? 1 : 0.7 }}
-                />
-              );
-            })}
+          <Bar dataKey="changes" radius={[4, 4, 0, 0]} barSize={40}>
+            {data.map((entry, index) => (
+              <Cell 
+                key={`cell-${index}`} 
+                fill={entry.date === selectedDate ? '#f97316' : '#475569'} 
+                className="transition-all duration-300 hover:opacity-80"
+              />
+            ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

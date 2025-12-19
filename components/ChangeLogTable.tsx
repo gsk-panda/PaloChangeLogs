@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, AlertCircle, FileText, Loader2 } from 'lucide-react';
-import { ChangeRecord } from '../types';
+import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronUp, AlertCircle, FileText, Loader2, GitCommit, User } from 'lucide-react';
+import { ChangeRecord, ActionType } from '../types';
 import DiffViewer from './DiffViewer';
-import { fetchLogDetail } from '../services/panoramaService';
+import { fetchLogDetail, parseDetailedXml } from '../services/panoramaService';
 
 interface ChangeLogTableProps {
   changes: ChangeRecord[];
@@ -13,6 +13,7 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
   
   // State for handling detail fetching
   const [detailsData, setDetailsData] = useState<Record<string, string>>({});
+  const [detailedDiffs, setDetailedDiffs] = useState<Record<string, {before: string, after: string}>>({});
   const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>({});
   const [detailsError, setDetailsError] = useState<Record<string, string>>({});
 
@@ -20,17 +21,28 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
     setExpandedId(expandedId === id ? null : id);
   };
 
-  const handleFetchDetails = async (e: React.MouseEvent, record: ChangeRecord) => {
-      e.stopPropagation();
-      if (detailsData[record.id]) return; // Already fetched
+  useEffect(() => {
+    if (expandedId) {
+        const record = changes.find(c => c.id === expandedId);
+        // Only fetch if we haven't fetched details yet and aren't currently fetching
+        if (record && !detailedDiffs[record.id] && !loadingDetails[record.id]) {
+            fetchDetailsForRecord(record);
+        }
+    }
+  }, [expandedId, changes]);
 
+  const fetchDetailsForRecord = async (record: ChangeRecord) => {
       setLoadingDetails(prev => ({ ...prev, [record.id]: true }));
       setDetailsError(prev => ({ ...prev, [record.id]: '' }));
       
       try {
-          // Uses the exact query format requested
           const xmlResult = await fetchLogDetail(record.seqno);
           setDetailsData(prev => ({ ...prev, [record.id]: xmlResult }));
+          
+          const parsed = parseDetailedXml(xmlResult);
+          if (parsed.before || parsed.after) {
+             setDetailedDiffs(prev => ({ ...prev, [record.id]: parsed }));
+          }
       } catch (err: any) {
           console.error("Failed to fetch details", err);
           setDetailsError(prev => ({ ...prev, [record.id]: err.message || "Failed to load details" }));
@@ -39,99 +51,143 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
       }
   };
 
+  const getActionBadgeColor = (action: string) => {
+    switch (action) {
+      case ActionType.ADD: return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+      case ActionType.DELETE: return 'bg-red-500/10 text-red-400 border-red-500/20';
+      default: return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+    }
+  };
+
   if (changes.length === 0) {
       return (
-          <div className="text-center py-12 text-slate-500 bg-white rounded-xl border border-slate-200 shadow-sm">
-              <p>No changes found matching the filter (cmd=set/edit).</p>
+          <div className="flex flex-col items-center justify-center py-16 text-slate-500 bg-slate-900 rounded-xl border border-dashed border-slate-800">
+              <GitCommit size={48} className="mb-4 opacity-20" />
+              <p className="font-medium text-slate-400">No changes found</p>
+              <p className="text-sm">No configuration changes match the current filters.</p>
           </div>
       );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ring-1 ring-slate-900/5">
+    <div className="bg-slate-900 rounded-xl shadow-lg shadow-black/20 border border-slate-800 overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200 table-fixed">
-          <thead className="bg-slate-50">
+        <table className="min-w-full divide-y divide-slate-800 table-fixed">
+          <thead className="bg-slate-950/50 backdrop-blur">
             <tr>
-              <th scope="col" className="w-32 px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Time</th>
-              <th scope="col" className="w-32 px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Admin</th>
-              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</th>
-              <th scope="col" className="w-20 px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Action</th>
+              <th scope="col" className="w-40 px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest">Timestamp</th>
+              <th scope="col" className="w-48 px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest">Admin</th>
+              <th scope="col" className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest">Path / Description</th>
+              <th scope="col" className="w-24 px-6 py-4 text-right text-[11px] font-bold text-slate-500 uppercase tracking-widest">Action</th>
+              <th scope="col" className="w-12 px-6 py-4"></th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-slate-200">
+          <tbody className="bg-slate-900 divide-y divide-slate-800">
             {changes.map((change) => (
               <React.Fragment key={change.id}>
                 <tr 
                   onClick={() => toggleExpand(change.id)}
-                  className={`cursor-pointer hover:bg-slate-50 transition-colors ${expandedId === change.id ? 'bg-slate-50' : ''}`}
+                  className={`group cursor-pointer transition-all duration-200 ${
+                    expandedId === change.id ? 'bg-slate-800/50' : 'hover:bg-slate-800/30'
+                  }`}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                    {new Date(change.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
-                      {change.admin}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-300 font-mono">
+                    {new Date(change.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false})}
+                    <span className="text-slate-500 ml-2 text-xs font-normal">
+                      {new Date(change.timestamp).toLocaleDateString()}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900 truncate" title={change.description}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                       <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-slate-500 border border-slate-700/50">
+                          <User size={12} />
+                       </div>
+                       <span className="text-sm font-medium text-slate-400">{change.admin}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-400 truncate max-w-lg" title={change.description}>
+                    <span className="font-mono text-xs bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded border border-slate-700 mr-2">
+                       {change.seqno}
+                    </span>
                     {change.description}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">
-                    {expandedId === change.id ? <ChevronUp size={18} className="inline" /> : <ChevronDown size={18} className="inline" />}
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getActionBadgeColor(change.action)}`}>
+                      {change.action}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-slate-600">
+                    <div className={`transition-transform duration-300 group-hover:text-slate-400 ${expandedId === change.id ? 'rotate-180 text-orange-500' : ''}`}>
+                      <ChevronDown size={16} />
+                    </div>
                   </td>
                 </tr>
                 {expandedId === change.id && (
-                  <tr className="bg-slate-50/50">
-                    <td colSpan={4} className="px-0">
-                      <div className="px-6 py-6 border-t border-slate-200 shadow-inner bg-slate-50">
-                        <div className="flex flex-col gap-6">
+                  <tr className="bg-slate-800/30">
+                    <td colSpan={5} className="px-0 pt-0 pb-4 border-b border-slate-800">
+                      <div className="mx-4 mt-2 bg-slate-900 rounded-lg border border-slate-700/50 shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="flex flex-col">
                           {/* Action Bar */}
-                          <div className="flex flex-wrap justify-between items-center border-b border-slate-200 pb-4 gap-3">
-                            <div>
-                                <h3 className="text-base font-semibold text-slate-900">Configuration Details</h3>
-                                <div className="text-sm text-slate-500 mt-1">
-                                    <span className="font-mono text-xs bg-slate-200 px-2 py-0.5 rounded mr-2">SEQ: {change.seqno}</span>
-                                    <span className="font-mono text-xs text-slate-600 break-all">{change.description}</span>
+                          <div className="flex flex-wrap justify-between items-center px-6 py-4 border-b border-slate-800 gap-4 bg-slate-950/20">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-slate-800 rounded-md border border-slate-700/50">
+                                    <GitCommit size={18} className="text-slate-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-200">Change Details</h3>
+                                    <p className="text-xs text-slate-500 font-mono mt-0.5 max-w-xl truncate">{change.description}</p>
                                 </div>
                             </div>
                             <div className="flex gap-2">
                                 <button 
-                                  onClick={(e) => handleFetchDetails(e, change)}
+                                  onClick={(e) => { e.stopPropagation(); fetchDetailsForRecord(change); }}
                                   disabled={loadingDetails[change.id]}
-                                  className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all disabled:opacity-50"
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-400 text-xs font-semibold rounded-md shadow-sm hover:bg-slate-700 hover:text-white hover:border-orange-500/50 transition-all disabled:opacity-50"
                                 >
-                                  {loadingDetails[change.id] ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-                                  {detailsData[change.id] ? 'Refresh Details' : 'Load Full Details'}
+                                  {loadingDetails[change.id] ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                                  {detailsData[change.id] ? 'Refresh Full XML' : 'Reload Details'}
                                 </button>
                             </div>
                           </div>
                           
-                          {/* Error Message for Details */}
-                          {detailsError[change.id] && (
-                              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-                                  <AlertCircle size={16} />
-                                  {detailsError[change.id]}
-                              </div>
-                          )}
+                          <div className="p-6 space-y-6">
+                            {/* Error Message for Details */}
+                            {detailsError[change.id] && (
+                                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                                    <AlertCircle size={16} />
+                                    {detailsError[change.id]}
+                                </div>
+                            )}
 
-                          {/* Full Details View */}
-                          {detailsData[change.id] && (
-                            <div className="bg-slate-900 rounded-xl overflow-hidden shadow-sm ring-1 ring-slate-900/10">
-                                <div className="bg-slate-800 px-4 py-2 flex items-center justify-between border-b border-slate-700">
-                                    <span className="text-slate-300 text-xs font-mono font-bold uppercase tracking-wider">Detailed Log Response</span>
-                                </div>
-                                <div className="p-4 overflow-x-auto">
-                                    <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap break-all leading-relaxed">
-                                        {detailsData[change.id]}
-                                    </pre>
-                                </div>
+                            {/* Standard Diff View with Loading State */}
+                            <div className="rounded-lg border border-slate-700/50 overflow-hidden shadow-md relative">
+                               {loadingDetails[change.id] && !detailedDiffs[change.id] ? (
+                                   <div className="p-12 flex flex-col items-center justify-center text-slate-500 bg-slate-900/50">
+                                       <Loader2 size={24} className="animate-spin mb-2 text-orange-500" />
+                                       <span className="text-xs font-medium">Fetching full detailed configuration...</span>
+                                   </div>
+                               ) : (
+                                   <DiffViewer 
+                                      before={detailedDiffs[change.id]?.before || change.diffBefore} 
+                                      after={detailedDiffs[change.id]?.after || change.diffAfter} 
+                                   />
+                               )}
                             </div>
-                          )}
 
-                          {/* Standard Diff View */}
-                          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-                             <DiffViewer before={change.diffBefore} after={change.diffAfter} />
+                            {/* Full Details View (Optional/Advanced) */}
+                            {detailsData[change.id] && (
+                              <div className="rounded-lg overflow-hidden border border-slate-700/50 shadow-md">
+                                  <div className="bg-slate-950 px-4 py-2 flex items-center justify-between border-b border-slate-800">
+                                      <span className="text-slate-500 text-[10px] font-mono font-bold uppercase tracking-wider">Raw Detailed XML Response</span>
+                                  </div>
+                                  <div className="bg-slate-900 p-4 overflow-x-auto max-h-60 custom-scrollbar">
+                                      <pre className="text-[10px] font-mono text-emerald-400 whitespace-pre-wrap break-all leading-relaxed">
+                                          {detailsData[change.id]}
+                                      </pre>
+                                  </div>
+                              </div>
+                            )}
+
                           </div>
                         </div>
                       </div>

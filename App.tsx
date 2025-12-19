@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChangeLogTable from './components/ChangeLogTable';
 import StatsChart from './components/StatsChart';
-import { Search, Bell, Calendar, AlertTriangle, RefreshCw, User, Award } from 'lucide-react';
+import { Bell, Calendar, AlertTriangle, RefreshCw, User, Award, Activity, Layers, ShieldCheck } from 'lucide-react';
 import { ChangeRecord, DailyStat, AdminStat } from './types';
 import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
 
@@ -13,38 +13,19 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const getTodayLocalDate = (): string => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayLocalDate());
-
-  const getLocalDate = (dateStr: string): Date => {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day);
-  };
-
-  const formatDateForAPI = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const loadData = async (targetDate: string) => {
     setLoading(true);
     setError(null);
     try {
-      const [year, month, day] = targetDate.split('-').map(Number);
-      const end = new Date(year, month - 1, day);
-      const start = new Date(year, month - 1, day - 6);
+      // Calculate 7 day range ending at targetDate
+      const end = new Date(targetDate);
+      const start = new Date(targetDate);
+      start.setDate(end.getDate() - 6);
 
-      const startDateStr = formatDateForAPI(start);
-      const endDateStr = formatDateForAPI(end);
+      const startDateStr = start.toISOString().split('T')[0];
+      const endDateStr = end.toISOString().split('T')[0];
 
       const fetchedLogs = await fetchChangeLogsRange(startDateStr, endDateStr);
       
@@ -66,19 +47,16 @@ const App: React.FC = () => {
     loadData(selectedDate);
   }, [selectedDate]);
 
-  const normalizeDate = (dateStr: string): string => {
-    return dateStr.replace(/\//g, '-');
-  };
-
+  // Filter logs for the table to ONLY show the selected day
   const tableLogs = allLogs.filter(log => {
-    const logDate = normalizeDate(log.timestamp.split(' ')[0]);
+    const logDate = log.timestamp.split(' ')[0].replace(/\//g, '-');
     return logDate === selectedDate;
   });
   
   const changeCount = tableLogs.length;
   const totalWindowChanges = allLogs.length;
   
-  const displayDateLabel = getLocalDate(selectedDate).toLocaleDateString('en-US', { 
+  const displayDateLabel = new Date(selectedDate).toLocaleDateString('en-US', { 
     month: 'long', 
     day: 'numeric', 
     year: 'numeric' 
@@ -89,63 +67,66 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
+    <div className="flex min-h-screen bg-slate-950 font-sans text-slate-200">
       <Sidebar />
       
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Top Header */}
-        <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10">
-          <div className="flex items-center gap-4 text-slate-500">
-            <Search size={20} />
-            <input 
-              type="text" 
-              placeholder="Search history..." 
-              className="bg-transparent border-none focus:ring-0 text-sm w-64 md:w-96 text-slate-800 placeholder-slate-400"
-            />
-          </div>
+        <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 h-16 flex items-center justify-end px-8 sticky top-0 z-10">
           <div className="flex items-center gap-6">
-            <button className="text-slate-500 hover:text-slate-700 relative">
+            <button className="text-slate-500 hover:text-slate-300 relative transition-colors">
               <Bell size={20} />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full ring-2 ring-slate-900"></span>
             </button>
-            <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold text-xs">
-              JD
+            <div className="flex items-center gap-3 pl-6 border-l border-slate-800">
+              <div className="text-right hidden md:block">
+                <div className="text-sm font-semibold text-slate-300">John Doe</div>
+                <div className="text-xs text-slate-500">Security Admin</div>
+              </div>
+              <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-orange-500/20 to-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 font-bold text-xs shadow-sm">
+                JD
+              </div>
             </div>
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-8">
-          <div className="max-w-6xl mx-auto space-y-8">
+        <div className="flex-1 overflow-auto p-8 scroll-smooth">
+          <div className="max-w-7xl mx-auto space-y-8 pb-12">
             
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-                <p className="text-slate-500 mt-1">Reviewing changes for {displayDateLabel}</p>
+                <h1 className="text-2xl font-bold text-white tracking-tight">Security Dashboard</h1>
+                <p className="text-slate-500 text-sm mt-1 flex items-center gap-2">
+                  <Activity size={14} className="text-orange-500" />
+                  Reviewing changes for <span className="font-medium text-slate-300">{displayDateLabel}</span>
+                </p>
               </div>
               <div className="flex items-center gap-3">
-                 <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 shadow-sm focus-within:ring-2 focus-within:ring-orange-500 transition-all">
-                    <Calendar size={16} className="text-slate-400" />
+                 <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 shadow-sm hover:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/50 transition-all">
+                    <Calendar size={16} className="text-slate-500" />
                     <input 
                         type="date" 
                         value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
-                        className="bg-transparent border-none outline-none focus:ring-0 text-slate-700 p-0 text-sm"
+                        className="bg-transparent border-none outline-none focus:ring-0 text-slate-300 p-0 text-sm cursor-pointer font-medium color-scheme-dark"
                     />
                  </div>
               </div>
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-2 animate-fadeIn">
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex flex-col gap-2 animate-fadeIn shadow-sm">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <AlertTriangle className="text-red-600" size={20} />
+                    <div className="p-2 bg-red-500/20 rounded-full">
+                      <AlertTriangle className="text-red-400" size={20} />
+                    </div>
                     <div>
-                      <h3 className="text-sm font-bold text-red-800">Connection Error</h3>
-                      <p className="text-sm text-red-600">{error}</p>
+                      <h3 className="text-sm font-bold text-red-200">Connection Error</h3>
+                      <p className="text-sm text-red-300/80 mt-0.5">{error}</p>
                     </div>
                   </div>
-                  <button onClick={() => loadData(selectedDate)} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-red-200 text-red-700 text-sm font-medium rounded-lg hover:bg-red-50">
+                  <button onClick={() => loadData(selectedDate)} className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-red-500/30 text-red-300 text-sm font-medium rounded-lg hover:bg-slate-800 hover:shadow-sm transition-all">
                     <RefreshCw size={14} /> Retry
                   </button>
                 </div>
@@ -155,69 +136,93 @@ const App: React.FC = () => {
             {/* Stats Cards Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard 
-                title={`Changes on ${getLocalDate(selectedDate).toLocaleDateString([], {month: 'short', day: 'numeric'})}`}
+                title={`Changes on ${new Date(selectedDate).toLocaleDateString([], {month: 'short', day: 'numeric'})}`}
                 value={changeCount.toString()} 
-                trend={changeCount > 0 ? "Observed" : "Zero"} 
+                trend={changeCount > 0 ? "Changes Detected" : "No Activity"} 
                 trendUp={changeCount > 0} 
+                icon={<Layers size={22} className="text-blue-400" />}
+                colorClass="blue"
               />
               <StatCard 
                 title="7-Day Total Activity" 
                 value={totalWindowChanges.toString()} 
-                trend="Range" 
+                trend="Past Week" 
                 trendUp={true} 
                 neutral
+                icon={<Activity size={22} className="text-purple-400" />}
+                colorClass="purple"
               />
               <StatCard 
                 title="Active Admins (7 Days)" 
                 value={adminStats.length.toString()} 
-                trend="Verified" 
+                trend="Contributors" 
                 trendUp={true} 
                 neutral
+                icon={<ShieldCheck size={22} className="text-emerald-400" />}
+                colorClass="emerald"
               />
             </div>
 
             {/* Main Charts Area */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
+              <div className="bg-slate-900 p-6 rounded-xl shadow-lg shadow-black/20 border border-slate-800 lg:col-span-2 flex flex-col">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-sm font-semibold text-slate-900">7-Day Activity Timeline</h3>
-                    <span className="text-xs text-slate-400">Past week ending {displayDateLabel}</span>
+                    <div>
+                      <h3 className="text-base font-bold text-white">Activity Timeline</h3>
+                      <p className="text-xs text-slate-500 mt-1">Daily commit frequency over the last 7 days</p>
+                    </div>
+                    <span className="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700/50">Last 7 Days</span>
                 </div>
-                {loading ? (
-                  <div className="h-64 bg-slate-100 rounded animate-pulse flex items-center justify-center text-slate-400 text-sm">Loading stats...</div>
-                ) : (
-                  <StatsChart 
-                    data={stats} 
-                    selectedDate={selectedDate}
-                    onDateSelect={handleDateSelect}
-                  />
-                )}
-                <p className="mt-4 text-[10px] text-slate-400 text-center">Click a bar to view logs for that specific day.</p>
+                <div className="flex-1 min-h-[250px]">
+                  {loading ? (
+                    <div className="h-full bg-slate-800/50 rounded-lg animate-pulse flex items-center justify-center text-slate-500 text-sm">Loading visualization...</div>
+                  ) : (
+                    <StatsChart 
+                      data={stats} 
+                      selectedDate={selectedDate}
+                      onDateSelect={handleDateSelect}
+                    />
+                  )}
+                </div>
+                <p className="mt-4 text-[11px] text-slate-500 text-center flex items-center justify-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-orange-500"></span> Selected Date
+                  <span className="w-2 h-2 rounded-full bg-slate-700 ml-2"></span> Other Days
+                </p>
               </div>
               
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <div className="flex items-center gap-2 mb-6">
-                    <Award size={18} className="text-orange-500" />
-                    <h3 className="text-sm font-semibold text-slate-900">Top Admins (7 Days)</h3>
+              <div className="bg-slate-900 p-6 rounded-xl shadow-lg shadow-black/20 border border-slate-800 flex flex-col">
+                <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-4">
+                    <div className="p-2 bg-orange-500/10 rounded-lg">
+                      <Award size={20} className="text-orange-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white">Top Contributors</h3>
+                      <p className="text-xs text-slate-500">Most active admins</p>
+                    </div>
                 </div>
                 {loading ? (
                    <div className="space-y-4">
-                     {[1,2,3,4].map(i => <div key={i} className="h-8 bg-slate-50 rounded animate-pulse"></div>)}
+                     {[1,2,3,4].map(i => <div key={i} className="h-10 bg-slate-800 rounded-lg animate-pulse"></div>)}
                    </div>
                 ) : adminStats.length === 0 ? (
-                    <div className="h-48 flex items-center justify-center text-slate-400 text-xs">No admin data</div>
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-600 text-xs gap-2">
+                      <User size={24} className="opacity-20" />
+                      No admin data available
+                    </div>
                 ) : (
-                    <div className="space-y-4">
-                        {adminStats.slice(0, 5).map((stat) => (
-                            <div key={stat.admin} className="flex items-center justify-between">
+                    <div className="space-y-2 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                        {adminStats.slice(0, 10).map((stat, idx) => (
+                            <div key={stat.admin} className="flex items-center justify-between group p-2 hover:bg-slate-800 rounded-lg transition-colors cursor-default">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
-                                        <User size={14} />
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
+                                      idx === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-800 text-slate-500'
+                                    }`}>
+                                        {idx + 1}
                                     </div>
-                                    <span className="text-sm font-medium text-slate-700 truncate w-32">{stat.admin}</span>
+                                    <span className="text-sm font-medium text-slate-300 truncate max-w-[120px]" title={stat.admin}>{stat.admin}</span>
                                 </div>
-                                <span className="text-xs font-bold px-2 py-1 bg-slate-100 text-slate-600 rounded">
-                                    {stat.changes}
+                                <span className="text-xs font-bold px-2.5 py-1 bg-slate-800 group-hover:bg-slate-700 border border-transparent group-hover:border-slate-600 text-slate-400 group-hover:text-slate-300 rounded-full transition-all">
+                                    {stat.changes} <span className="text-[10px] font-normal text-slate-600 ml-0.5">edits</span>
                                 </span>
                             </div>
                         ))}
@@ -229,14 +234,17 @@ const App: React.FC = () => {
             {/* Log Table for Selected Day */}
             <div className="space-y-4">
                <div className="flex items-center justify-between">
-                   <h2 className="text-lg font-bold text-slate-900">
-                     Daily Log Entries
-                   </h2>
-                   <span className="text-sm text-slate-500">{changeCount} entries found</span>
+                   <div>
+                     <h2 className="text-lg font-bold text-white">Change Log</h2>
+                     <p className="text-slate-500 text-sm mt-0.5">Detailed records for {displayDateLabel}</p>
+                   </div>
+                   <div className="text-xs font-medium px-3 py-1 bg-slate-900 border border-slate-800 rounded-full text-slate-400 shadow-sm">
+                     {changeCount} total entries
+                   </div>
                </div>
                {loading ? (
                  <div className="space-y-3">
-                   {[1,2,3].map(i => <div key={i} className="h-16 bg-white rounded-lg shadow-sm animate-pulse"></div>)}
+                   {[1,2,3].map(i => <div key={i} className="h-16 bg-slate-900 rounded-lg shadow-sm animate-pulse"></div>)}
                  </div>
                ) : (
                  <ChangeLogTable changes={tableLogs} />
@@ -250,19 +258,46 @@ const App: React.FC = () => {
   );
 };
 
-const StatCard: React.FC<{ title: string; value: string; trend: string; trendUp: boolean; neutral?: boolean }> = ({ title, value, trend, trendUp, neutral }) => (
-  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 transition-transform hover:scale-[1.02]">
-    <h4 className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">{title}</h4>
-    <div className="flex items-end justify-between">
-      <span className="text-3xl font-bold text-slate-900 block">{value}</span>
-      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-        neutral ? 'bg-slate-100 text-slate-600' :
-        trendUp ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-      }`}>
-        {trend}
-      </span>
+const StatCard: React.FC<{ 
+  title: string; 
+  value: string; 
+  trend: string; 
+  trendUp: boolean; 
+  neutral?: boolean;
+  icon: React.ReactNode;
+  colorClass: 'blue' | 'purple' | 'emerald';
+}> = ({ title, value, trend, trendUp, neutral, icon, colorClass }) => {
+  
+  const bgColors = {
+    blue: 'bg-blue-500/10',
+    purple: 'bg-purple-500/10',
+    emerald: 'bg-emerald-500/10'
+  };
+
+  return (
+    <div className="bg-slate-900 p-6 rounded-xl shadow-lg shadow-black/20 border border-slate-800 relative overflow-hidden group transition-all hover:-translate-y-0.5 hover:shadow-xl hover:border-slate-700">
+      <div className={`absolute top-0 left-0 w-full h-1 ${
+        colorClass === 'blue' ? 'bg-blue-500' : colorClass === 'purple' ? 'bg-purple-500' : 'bg-emerald-500'
+      }`}></div>
+      
+      <div className="flex justify-between items-start mb-4">
+        <div className={`p-3 rounded-lg ${bgColors[colorClass]}`}>
+          {icon}
+        </div>
+        <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider border border-transparent ${
+          neutral ? 'bg-slate-800 text-slate-400 group-hover:border-slate-700' :
+          trendUp ? 'bg-emerald-500/10 text-emerald-400 group-hover:border-emerald-500/20' : 'bg-red-500/10 text-red-400'
+        }`}>
+          {trend}
+        </span>
+      </div>
+      
+      <div>
+        <h4 className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">{title}</h4>
+        <span className="text-3xl font-bold text-white block tracking-tight">{value}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default App;

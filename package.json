@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "NODE_OPTIONS=--openssl-legacy-provider tsc && NODE_OPTIONS=--openssl-legacy-provider vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -16,7 +16,6 @@
     "recharts": "^2.12.2"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
@@ -27,6 +26,6 @@
     "vite": "^5.1.5"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=18.8.20"
   }
 }

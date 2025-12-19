@@ -1,28 +1,21 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
-  
-  const panoramaHost = env.PANORAMA_HOST || '10.1.0.100';
-  const panoramaUrl = panoramaHost.startsWith('http') ? panoramaHost : `https://${panoramaHost}`;
-
-  return {
-    plugins: [react()],
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
-      'process.env.PANORAMA_API_KEY': JSON.stringify(env.PANORAMA_API_KEY || ''),
-    },
-    server: {
-      proxy: {
-        '/panorama-proxy': {
-          target: panoramaUrl,
-          changeOrigin: true,
-          secure: false,
-          rewrite: (path) => path.replace(/^\/panorama-proxy/, ''),
-          followRedirects: true,
-        }
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  define: {
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
+  },
+  server: {
+    proxy: {
+      '/panorama-proxy': {
+        target: 'https://panorama.officeours.com',
+        changeOrigin: true,
+        secure: false, // Accept self-signed certificates from Panorama
+        rewrite: (path) => path.replace(/^\/panorama-proxy/, ''),
+        followRedirects: true, // Handle server redirects (e.g. 301/302) automatically
       }
     }
-  };
+  }
 });
