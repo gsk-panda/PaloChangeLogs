@@ -4,7 +4,7 @@ import { PANORAMA_CONFIG } from '../constants';
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Mock XML Generator for Fallback
-const getMockLogsXML = (startDate: string) => {
+const getMockLogsXML = (_startDate: string) => {
     const dates = [];
     for(let i=0; i<7; i++) {
         const now = new Date();
