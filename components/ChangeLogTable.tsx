@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, AlertCircle, FileText, Loader2, GitCommit, User } from 'lucide-react';
+import { ChevronDown, AlertCircle, FileText, Loader2, GitCommit, User } from 'lucide-react';
 import { ChangeRecord, ActionType } from '../types';
 import DiffViewer from './DiffViewer';
 import { fetchLogDetail, parseDetailedXml } from '../services/panoramaService';

@@ -7,7 +7,6 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const getMockLogsXML = (startDate: string) => {
     const dates = [];
     for(let i=0; i<7; i++) {
-        const d = new Date(startDate); 
         const now = new Date();
         const past = new Date(now);
         past.setDate(now.getDate() - i);
