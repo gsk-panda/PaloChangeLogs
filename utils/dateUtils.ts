@@ -35,12 +35,19 @@ export const formatMSTDate = (date: Date): string => {
       return `${year}-${month}-${day}`;
     }
     
-    return new Intl.DateTimeFormat('en-US', {
+    const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: MST_TIMEZONE,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
-    }).format(date);
+    });
+    
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value || '';
+    const month = parts.find(p => p.type === 'month')?.value || '';
+    const day = parts.find(p => p.type === 'day')?.value || '';
+    
+    return `${year}-${month}-${day}`;
   } catch (e) {
     console.warn('Error formatting MST date:', e);
     if (!date || isNaN(date.getTime())) {
