@@ -22,9 +22,26 @@ export default defineConfig({
       }
     }
   },
+  server: {
+    host: '0.0.0.0',
+    proxy: {
+      '/panorama-proxy': {
+        target: 'https://panorama.officeours.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/panorama-proxy/, ''),
+        followRedirects: true,
+      },
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      }
+    }
+  },
   preview: {
     host: '0.0.0.0',
     port: 4173,
+    strictPort: false,
     allowedHosts: [
       'panovision.officeours.com',
       'localhost',
