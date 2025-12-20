@@ -11,8 +11,6 @@ interface ChangeLogTableProps {
 const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   
-  // State for handling detail fetching
-  const [detailsData, setDetailsData] = useState<Record<string, string>>({});
   const [detailedDiffs, setDetailedDiffs] = useState<Record<string, {before: string, after: string}>>({});
   const [loadingDetails, setLoadingDetails] = useState<Record<string, boolean>>({});
   const [detailsError, setDetailsError] = useState<Record<string, string>>({});
@@ -37,8 +35,6 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
       
       try {
           const xmlResult = await fetchLogDetail(record.seqno);
-          setDetailsData(prev => ({ ...prev, [record.id]: xmlResult }));
-          
           const parsed = parseDetailedXml(xmlResult);
           if (parsed.before || parsed.after) {
              setDetailedDiffs(prev => ({ ...prev, [record.id]: parsed }));
@@ -163,20 +159,6 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                                    />
                                )}
                             </div>
-
-                            {/* Full Details View (Optional/Advanced) */}
-                            {detailsData[change.id] && (
-                              <div className="rounded-lg overflow-hidden border border-slate-700/50 shadow-md">
-                                  <div className="bg-slate-950 px-4 py-2 flex items-center justify-between border-b border-slate-800">
-                                      <span className="text-slate-500 text-[10px] font-mono font-bold uppercase tracking-wider">Raw Detailed XML Response</span>
-                                  </div>
-                                  <div className="bg-slate-900 p-4 overflow-x-auto max-h-60 custom-scrollbar">
-                                      <pre className="text-[10px] font-mono text-emerald-400 whitespace-pre-wrap break-all leading-relaxed">
-                                          {detailsData[change.id]}
-                                      </pre>
-                                  </div>
-                              </div>
-                            )}
 
                           </div>
                         </div>

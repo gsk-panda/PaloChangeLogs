@@ -47,10 +47,11 @@ const App: React.FC = () => {
     loadData(selectedDate);
   }, [selectedDate]);
 
-  // Filter logs for the table to ONLY show the selected day
   const tableLogs = allLogs.filter(log => {
     const logDate = log.timestamp.split(' ')[0].replace(/\//g, '-');
-    return logDate === selectedDate;
+    const matchesDate = logDate === selectedDate;
+    const hasDescription = log.description && log.description.trim().length > 0;
+    return matchesDate && hasDescription;
   });
   
   const changeCount = tableLogs.length;
