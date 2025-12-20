@@ -104,7 +104,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
     const lineDiffsMap = new Map<number, { before: DiffSegment[], after: DiffSegment[], afterIdx: number }>();
     const usedAfterIndices = new Set<number>();
     
-    const findBestMatch = (bLine: string, bIdx: number) => {
+    const findBestMatch = (bLine: string) => {
       const trimmedB = bLine.trim();
       if (trimmedB.length === 0) return null;
       
@@ -170,7 +170,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
       const trimmedB = bLine.trim();
       if (trimmedB.length === 0) return;
       
-      const match = findBestMatch(bLine, bIdx);
+      const match = findBestMatch(bLine);
       if (match) {
         const aLine = aLines[match.idx];
         lineDiffsMap.set(bIdx, { ...computeWordDiff(bLine, aLine), afterIdx: match.idx });
@@ -221,7 +221,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
       const hasExactMatch = aSet.has(trimmed);
       const hasPartialMatch = diff !== null;
       
-      if (hasPartialMatch) {
+      if (hasPartialMatch && diff) {
         return (
           <div key={idx} className="px-4 py-0.5 whitespace-pre-wrap break-all flex text-slate-400 border-l-2 border-transparent">
             <span className="w-6 inline-block text-slate-700 select-none text-[10px] text-right mr-3">{idx + 1}</span>
@@ -267,7 +267,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
       const hasExactMatch = bSet.has(trimmed);
       const hasPartialMatch = diff !== null;
       
-      if (hasPartialMatch) {
+      if (hasPartialMatch && diff) {
         return (
           <div key={idx} className="px-4 py-0.5 whitespace-pre-wrap break-all flex text-slate-400 border-l-2 border-transparent">
             <span className="w-6 inline-block text-slate-700 select-none text-[10px] text-right mr-3">{idx + 1}</span>
