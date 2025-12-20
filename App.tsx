@@ -70,8 +70,11 @@ const App: React.FC = () => {
 
   const normalizedSelectedDate = (() => {
     try {
-      const date = getMSTDate(selectedDate);
-      return formatMSTDate(date);
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        return selectedDate;
+      }
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     } catch (e) {
       return selectedDate;
     }
@@ -79,8 +82,11 @@ const App: React.FC = () => {
 
   const tableLogs = filteredLogs.filter(log => {
     const logDateObj = parsePanoramaTimestamp(log.timestamp);
-    const logDateMST = formatMSTDate(logDateObj);
-    const matchesDate = logDateMST === normalizedSelectedDate;
+    const logYear = logDateObj.getFullYear();
+    const logMonth = String(logDateObj.getMonth() + 1).padStart(2, '0');
+    const logDay = String(logDateObj.getDate()).padStart(2, '0');
+    const logDateStr = `${logYear}-${logMonth}-${logDay}`;
+    const matchesDate = logDateStr === normalizedSelectedDate;
     return matchesDate;
   });
   

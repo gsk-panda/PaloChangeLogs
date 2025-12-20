@@ -203,7 +203,10 @@ export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: str
       if (!hasDescription) return;
       
       const logDateObj = parsePanoramaTimestamp(log.timestamp);
-      const dateKey = formatMSTDate(logDateObj);
+      const logYear = logDateObj.getFullYear();
+      const logMonth = String(logDateObj.getMonth() + 1).padStart(2, '0');
+      const logDay = String(logDateObj.getDate()).padStart(2, '0');
+      const dateKey = `${logYear}-${logMonth}-${logDay}`;
       if (statsMap.has(dateKey)) {
         statsMap.set(dateKey, (statsMap.get(dateKey) || 0) + 1);
       }
