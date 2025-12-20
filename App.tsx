@@ -68,10 +68,19 @@ const App: React.FC = () => {
     return hasDescription;
   });
 
+  const normalizedSelectedDate = (() => {
+    try {
+      const date = getMSTDate(selectedDate);
+      return formatMSTDate(date);
+    } catch (e) {
+      return selectedDate;
+    }
+  })();
+
   const tableLogs = filteredLogs.filter(log => {
     const logDateObj = parsePanoramaTimestamp(log.timestamp);
     const logDateMST = formatMSTDate(logDateObj);
-    const matchesDate = logDateMST === selectedDate;
+    const matchesDate = logDateMST === normalizedSelectedDate;
     return matchesDate;
   });
   
@@ -102,7 +111,13 @@ const App: React.FC = () => {
   })();
 
   const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
+    try {
+      const normalizedDate = formatMSTDate(getMSTDate(date));
+      setSelectedDate(normalizedDate);
+    } catch (e) {
+      console.warn('Error normalizing selected date:', e);
+      setSelectedDate(date);
+    }
   };
 
   return (
@@ -146,7 +161,7 @@ const App: React.FC = () => {
                     <input 
                         type="date" 
                         value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
+                        onChange={(e) => handleDateSelect(e.target.value)}
                         className="bg-transparent border-none outline-none focus:ring-0 text-slate-300 p-0 text-sm cursor-pointer font-medium color-scheme-dark"
                     />
                  </div>

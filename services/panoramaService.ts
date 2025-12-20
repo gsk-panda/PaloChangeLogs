@@ -209,7 +209,12 @@ export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: str
       }
     });
   
-    return Array.from(statsMap.entries()).map(([date, changes]) => ({ date, changes }));
+    const stats = Array.from(statsMap.entries()).map(([date, changes]) => ({ date, changes }));
+    return stats.sort((a, b) => {
+      const dateA = getMSTDate(a.date).getTime();
+      const dateB = getMSTDate(b.date).getTime();
+      return dateA - dateB;
+    });
 };
 
 /**
