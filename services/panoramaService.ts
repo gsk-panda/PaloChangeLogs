@@ -154,14 +154,28 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
   return records;
 };
 
+const formatDateForPanorama = (dateStr: string): string => {
+    const parts = dateStr.split(/[-\/]/);
+    if (parts.length === 3) {
+        let year: string, month: string, day: string;
+        if (parts[0].length === 4) {
+            [year, month, day] = parts;
+        } else {
+            [month, day, year] = parts;
+        }
+        return `${year}/${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
+    }
+    return dateStr.replace(/-/g, '/');
+};
+
 /**
  * Fetches change logs for a specific date range (start to end inclusive)
  */
 export const fetchChangeLogsRange = async (startDate: string, endDate: string): Promise<ChangeRecord[]> => {
     let params = 'type=log&log-type=config&nlogs=200'; 
     
-    const start = startDate.replace(/-/g, '/');
-    const end = endDate.replace(/-/g, '/');
+    const start = formatDateForPanorama(startDate);
+    const end = formatDateForPanorama(endDate);
     const query = `(receive_time geq '${start} 00:00:00') and (receive_time leq '${end} 23:59:59')`;
     params += `&query=${encodeURIComponent(query)}`;
     
