@@ -41,12 +41,16 @@ const StatsChart: React.FC<StatsChartProps> = ({ data, selectedDate, onDateSelec
             tickLine={false}
             tickMargin={10}
             tickFormatter={(value) => {
-              const d = getMSTDate(value);
-              return new Intl.DateTimeFormat('en-US', { 
-                timeZone: 'America/Denver',
-                month: 'short', 
-                day: 'numeric' 
-              }).format(d);
+              try {
+                const [year, month, day] = value.split('-').map(Number);
+                const d = new Date(year, month - 1, day);
+                return new Intl.DateTimeFormat('en-US', { 
+                  month: 'short', 
+                  day: 'numeric' 
+                }).format(d);
+              } catch (e) {
+                return value;
+              }
             }}
           />
           <YAxis 

@@ -153,8 +153,11 @@ export const getMSTDateString = (date: Date): string => {
 
 export const getTodayMST = (): string => {
   try {
-    const now = new Date();
-    return formatMSTDate(now);
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   } catch (e) {
     console.warn('Error getting today MST:', e);
     const today = new Date();

@@ -89,7 +89,8 @@ const App: React.FC = () => {
   
   const selectedDateObj = (() => {
     try {
-      return getMSTDate(selectedDate);
+      const date = getMSTDate(selectedDate);
+      return date;
     } catch (e) {
       console.warn('Error creating selectedDateObj:', e);
       return new Date(selectedDate);
@@ -98,12 +99,13 @@ const App: React.FC = () => {
   
   const displayDateLabel = (() => {
     try {
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
       return new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Denver',
         month: 'long',
         day: 'numeric',
         year: 'numeric'
-      }).format(selectedDateObj);
+      }).format(date);
     } catch (e) {
       console.warn('Error formatting display date:', e);
       return selectedDate;
