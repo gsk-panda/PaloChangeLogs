@@ -1,6 +1,6 @@
 import { ChangeRecord, DailyStat, AdminStat, ChangeType, ActionType, CommitStatus } from '../types';
 import { PANORAMA_CONFIG } from '../constants';
-import { getMSTDate, getMSTDateString, extractDateFromTimestamp } from '../utils/dateUtils';
+import { getMSTDate, getMSTDateString, extractDateFromTimestamp, addDaysToDateString } from '../utils/dateUtils';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -189,12 +189,10 @@ export const fetchChangeLogsRange = async (startDate: string, endDate: string): 
  */
 export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: string): DailyStat[] => {
     const statsMap = new Map<string, number>();
-    const endDate = getMSTDate(endDateStr);
     
     for (let i = 0; i < 7; i++) {
-        const d = getMSTDate(endDateStr);
-        d.setDate(endDate.getDate() - (6 - i));
-        const key = getMSTDateString(d);
+        const daysOffset = -(6 - i);
+        const key = addDaysToDateString(endDateStr, daysOffset);
         statsMap.set(key, 0);
     }
   

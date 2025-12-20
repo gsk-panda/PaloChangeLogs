@@ -199,3 +199,18 @@ export const getTodayMST = (): string => {
     return `${year}-${month}-${day}`;
   }
 };
+
+export const addDaysToDateString = (dateStr: string, days: number): string => {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + days);
+    const newYear = date.getFullYear();
+    const newMonth = String(date.getMonth() + 1).padStart(2, '0');
+    const newDay = String(date.getDate()).padStart(2, '0');
+    return `${newYear}-${newMonth}-${newDay}`;
+  } catch (e) {
+    console.warn('Error adding days to date:', e);
+    return dateStr;
+  }
+};

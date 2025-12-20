@@ -5,7 +5,7 @@ import StatsChart from './components/StatsChart';
 import { Bell, Calendar, AlertTriangle, RefreshCw, User, Award, Activity, Layers, ShieldCheck } from 'lucide-react';
 import { ChangeRecord, DailyStat, AdminStat } from './types';
 import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
-import { getTodayMST, getMSTDate, getMSTDateString, formatMSTDate, extractDateFromTimestamp } from './utils/dateUtils';
+import { getTodayMST, getMSTDate, getMSTDateString, formatMSTDate, extractDateFromTimestamp, addDaysToDateString } from './utils/dateUtils';
 
 const App: React.FC = () => {
   const [allLogs, setAllLogs] = useState<ChangeRecord[]>([]);
@@ -31,12 +31,14 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const end = getMSTDate(targetDate);
-      const start = getMSTDate(targetDate);
-      start.setDate(end.getDate() - 6);
-
-      const startDateStr = getMSTDateString(start);
-      const endDateStr = getMSTDateString(end);
+      const endDateStr = (() => {
+        const [year, month, day] = targetDate.split('-').map(Number);
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+          return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+        return targetDate;
+      })();
+      const startDateStr = addDaysToDateString(endDateStr, -6);
 
       const fetchedLogs = await fetchChangeLogsRange(startDateStr, endDateStr);
       
@@ -116,8 +118,13 @@ const App: React.FC = () => {
 
   const handleDateSelect = (date: string) => {
     try {
-      const normalizedDate = formatMSTDate(getMSTDate(date));
-      setSelectedDate(normalizedDate);
+      const [year, month, day] = date.split('-').map(Number);
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        const normalizedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        setSelectedDate(normalizedDate);
+      } else {
+        setSelectedDate(date);
+      }
     } catch (e) {
       console.warn('Error normalizing selected date:', e);
       setSelectedDate(date);

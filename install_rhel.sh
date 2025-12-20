@@ -6,6 +6,8 @@ REPO_URL="https://github.com/gsk-panda/PaloChangeLogs.git"
 INSTALL_DIR="/opt/palo-changelogs"
 SERVICE_USER="palo-changelogs"
 NODE_VERSION="20"
+PANORAMA_HOST="panorama.officeours.com"
+PANORAMA_API_KEY="LUFRPT1UcFFML3JPQ21CRVFLU2w2ZHc1dzU4aVRGN1E9dzczNHg3T0VsRS9yYmFMcEpWdXBWdHkzS2dEa1FqU3dPN0xoejZDMWVpQVVNZlZUeGFIZ0xVMm5vZEtCYVcxdA=="
 
 echo "=========================================="
 echo "Palo ChangeLogs Installation Script"
@@ -95,20 +97,9 @@ ENV_FILE="$INSTALL_DIR/.env.local"
 
 if [ ! -f "$ENV_FILE" ]; then
     echo ""
-    echo "Please provide the following configuration:"
+    echo "Using default Panorama configuration..."
+    echo "  PANORAMA_HOST=$PANORAMA_HOST"
     echo ""
-    
-    read -p "Enter Panorama IP or hostname (e.g., panorama.example.com or 192.168.1.1): " PANORAMA_HOST
-    while [ -z "$PANORAMA_HOST" ]; do
-        echo "Panorama host cannot be empty."
-        read -p "Enter Panorama IP or hostname: " PANORAMA_HOST
-    done
-    
-    read -p "Enter Panorama API key: " PANORAMA_API_KEY
-    while [ -z "$PANORAMA_API_KEY" ]; do
-        echo "Panorama API key cannot be empty."
-        read -p "Enter Panorama API key: " PANORAMA_API_KEY
-    done
     
     read -p "Enter Gemini API key (press Enter to skip and configure later): " GEMINI_API_KEY
     
@@ -122,7 +113,7 @@ EOF
     echo "Created $ENV_FILE with configuration"
 else
     echo "Environment file already exists at $ENV_FILE"
-    echo "Skipping configuration prompts. Edit the file manually if needed."
+    echo "Skipping configuration. Edit the file manually if needed."
 fi
 
 echo ""
