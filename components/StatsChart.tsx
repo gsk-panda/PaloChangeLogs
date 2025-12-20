@@ -1,7 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { DailyStat } from '../types';
-import { getMSTDate } from '../utils/dateUtils';
 
 interface StatsChartProps {
   data: DailyStat[];
