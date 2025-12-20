@@ -5,7 +5,7 @@ import StatsChart from './components/StatsChart';
 import { Bell, Calendar, AlertTriangle, RefreshCw, User, Award, Activity, Layers, ShieldCheck } from 'lucide-react';
 import { ChangeRecord, DailyStat, AdminStat } from './types';
 import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
-import { getTodayMST, getMSTDate, getMSTDateString, formatMSTDate, extractDateFromTimestamp, addDaysToDateString } from './utils/dateUtils';
+import { getTodayMST, getMSTDate, extractDateFromTimestamp, addDaysToDateString } from './utils/dateUtils';
 
 const App: React.FC = () => {
   const [allLogs, setAllLogs] = useState<ChangeRecord[]>([]);
