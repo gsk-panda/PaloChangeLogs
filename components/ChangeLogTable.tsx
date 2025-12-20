@@ -138,16 +138,6 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                                     <p className="text-xs text-slate-500 font-mono mt-0.5 max-w-xl truncate">{change.description}</p>
                                 </div>
                             </div>
-                            <div className="flex gap-2">
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); fetchDetailsForRecord(change); }}
-                                  disabled={loadingDetails[change.id]}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-400 text-xs font-semibold rounded-md shadow-sm hover:bg-slate-700 hover:text-white hover:border-orange-500/50 transition-all disabled:opacity-50"
-                                >
-                                  {loadingDetails[change.id] ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-                                  {detailsData[change.id] ? 'Refresh Full XML' : 'Reload Details'}
-                                </button>
-                            </div>
                           </div>
                           
                           <div className="p-6 space-y-6">

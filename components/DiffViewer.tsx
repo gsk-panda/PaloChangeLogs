@@ -8,14 +8,11 @@ interface DiffViewerProps {
 const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
   
   const { beforeLines, afterLines, addedLines, removedLines } = useMemo(() => {
-    // Helper to split text into lines, handling both newlines and semicolons
     const splitText = (text: string) => {
         if (!text) return [];
-        // If it looks like a real config dump (newlines), split by newline
         if (text.includes('\n')) {
             return text.split('\n').map(line => line.trimEnd()); 
         }
-        // Fallback for brief/inline format
         return text.split(';')
             .map(line => line.trim())
             .filter(line => line.length > 0)
@@ -25,22 +22,21 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
     const bLines = splitText(before);
     const aLines = splitText(after);
 
-    // Create sets for fast lookup of existence (ignoring whitespace for matching purposes)
-    const bSet = new Set(bLines.map(l => l.trim()));
-    const aSet = new Set(aLines.map(l => l.trim()));
+    const bSet = new Set(bLines.map(l => l.trim()).filter(l => l.length > 0));
+    const aSet = new Set(aLines.map(l => l.trim()).filter(l => l.length > 0));
 
-    // Identify indices/content that are unique
-    // For specific line highlighting
     const removed = new Set<number>();
     bLines.forEach((line, idx) => {
-        if (!aSet.has(line.trim())) {
+        const trimmed = line.trim();
+        if (trimmed.length > 0 && !aSet.has(trimmed)) {
             removed.add(idx);
         }
     });
 
     const added = new Set<number>();
     aLines.forEach((line, idx) => {
-        if (!bSet.has(line.trim())) {
+        const trimmed = line.trim();
+        if (trimmed.length > 0 && !bSet.has(trimmed)) {
             added.add(idx);
         }
     });
