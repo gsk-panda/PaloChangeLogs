@@ -4,52 +4,6 @@ import { getMSTDate, getMSTDateString, parsePanoramaTimestamp, formatMSTDate } f
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Mock XML Generator for Fallback
-const getMockLogsXML = (_startDate: string) => {
-    const dates = [];
-    for(let i=0; i<7; i++) {
-        const now = new Date();
-        const past = new Date(now);
-        past.setDate(now.getDate() - i);
-        dates.push(past);
-    }
-
-    const entries = dates.flatMap((date, dateIdx) => {
-        // Generate 2-5 logs per day
-        const numLogs = 2 + Math.floor(Math.random() * 4);
-        return Array.from({length: numLogs}).map((_, idx) => {
-            const isPolicy = Math.random() > 0.5;
-            const path = isPolicy 
-                ? `/config/devices/entry/vsys/entry/rulebase/security/rules/entry[@name='Rule-${dateIdx}-${idx}']`
-                : `/config/devices/entry/network/interface/ethernet/entry[@name='eth1/${idx}']`;
-            
-            return `
-            <entry>
-                <seqno>${1000 + dateIdx * 10 + idx}</seqno>
-                <receive_time>${date.getFullYear()}/${(date.getMonth()+1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')} 10:${10+idx}:00</receive_time>
-                <admin>${Math.random() > 0.6 ? 'admin-jdoe' : 'admin-ssmith'}</admin>
-                <path>${path}</path>
-                <cmd>${Math.random() > 0.8 ? 'add' : 'edit'}</cmd>
-                <before-change-detail>action: deny; service: application-default; (Brief Preview)</before-change-detail>
-                <after-change-detail>action: allow; service: any; profile-setting: default; (Brief Preview)</after-change-detail>
-            </entry>`;
-        });
-    }).join('');
-
-    return `
-    <response status="success">
-        <result>
-            <job><status>FIN</status></job>
-            <log>
-                <logs>
-                    ${entries}
-                </logs>
-            </log>
-        </result>
-    </response>
-    `;
-};
-
 /**
  * Polls the Panorama API for job results given a Job ID
  */
@@ -136,40 +90,11 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
         
         return text;
     } catch (error) {
-        console.warn("Panorama Fetch Error:", error);
-        
-        // FALLBACK FOR DEMO / DEV MODE
-        console.info("⚠️ Falling back to MOCK DATA due to API failure.");
-        if (queryParams.includes('show-detail=yes')) {
-            return `
-            <response status="success">
-                <result>
-                    <entry>
-                        <before-change-detail>
-# Security Rule "Block-All"
-set security rules Block-All from any
-set security rules Block-All to any
-set security rules Block-All source any
-set security rules Block-All destination any
-set security rules Block-All service application-default
-set security rules Block-All action deny
-                        </before-change-detail>
-                        <after-change-detail>
-# Security Rule "Block-All" (Modified)
-set security rules Block-All from any
-set security rules Block-All to any
-set security rules Block-All source any
-set security rules Block-All destination any
-set security rules Block-All service any
-set security rules Block-All action allow
-set security rules Block-All profile-setting default
-                        </after-change-detail>
-                        <xml_blob><![CDATA[<config><security><rules><entry name="mock"><action>allow</action></entry></rules></security></config>]]></xml_blob>
-                    </entry>
-                </result>
-            </response>`;
+        console.error("Panorama Fetch Error:", error);
+        if (error instanceof Error) {
+            throw error;
         }
-        return getMockLogsXML(new Date().toISOString());
+        throw new Error(`Panorama API request failed: ${String(error)}`);
     }
 }
 
