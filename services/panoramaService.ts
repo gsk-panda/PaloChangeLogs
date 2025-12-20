@@ -1,6 +1,6 @@
 import { ChangeRecord, DailyStat, AdminStat, ChangeType, ActionType, CommitStatus } from '../types';
 import { PANORAMA_CONFIG } from '../constants';
-import { getMSTDate, getMSTDateString, parsePanoramaTimestamp } from '../utils/dateUtils';
+import { getMSTDate, getMSTDateString, parsePanoramaTimestamp, extractDateFromTimestamp } from '../utils/dateUtils';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -202,11 +202,7 @@ export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: str
       const hasDescription = log.description && log.description.trim().length > 0;
       if (!hasDescription) return;
       
-      const logDateObj = parsePanoramaTimestamp(log.timestamp);
-      const logYear = logDateObj.getFullYear();
-      const logMonth = String(logDateObj.getMonth() + 1).padStart(2, '0');
-      const logDay = String(logDateObj.getDate()).padStart(2, '0');
-      const dateKey = `${logYear}-${logMonth}-${logDay}`;
+      const dateKey = extractDateFromTimestamp(log.timestamp);
       if (statsMap.has(dateKey)) {
         statsMap.set(dateKey, (statsMap.get(dateKey) || 0) + 1);
       }

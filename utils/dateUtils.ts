@@ -147,6 +147,38 @@ export const parsePanoramaTimestamp = (timestampStr: string): Date => {
   }
 };
 
+export const extractDateFromTimestamp = (timestampStr: string): string => {
+  try {
+    const parts = timestampStr.split(' ');
+    if (parts.length >= 1) {
+      const datePart = parts[0];
+      const dateComponents = datePart.split(/[-\/]/).map(Number);
+      
+      if (dateComponents.length === 3) {
+        let year: number, month: number, day: number;
+        if (dateComponents[0] > 1000) {
+          [year, month, day] = dateComponents;
+        } else {
+          [month, day, year] = dateComponents;
+        }
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+    const date = parsePanoramaTimestamp(timestampStr);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch (e) {
+    console.warn('Error extracting date from timestamp:', timestampStr, e);
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+};
+
 export const getMSTDateString = (date: Date): string => {
   return formatMSTDate(date);
 };

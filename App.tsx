@@ -5,7 +5,7 @@ import StatsChart from './components/StatsChart';
 import { Bell, Calendar, AlertTriangle, RefreshCw, User, Award, Activity, Layers, ShieldCheck } from 'lucide-react';
 import { ChangeRecord, DailyStat, AdminStat } from './types';
 import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
-import { getTodayMST, getMSTDate, getMSTDateString, parsePanoramaTimestamp, formatMSTDate } from './utils/dateUtils';
+import { getTodayMST, getMSTDate, getMSTDateString, parsePanoramaTimestamp, formatMSTDate, extractDateFromTimestamp } from './utils/dateUtils';
 
 const App: React.FC = () => {
   const [allLogs, setAllLogs] = useState<ChangeRecord[]>([]);
@@ -81,11 +81,7 @@ const App: React.FC = () => {
   })();
 
   const tableLogs = filteredLogs.filter(log => {
-    const logDateObj = parsePanoramaTimestamp(log.timestamp);
-    const logYear = logDateObj.getFullYear();
-    const logMonth = String(logDateObj.getMonth() + 1).padStart(2, '0');
-    const logDay = String(logDateObj.getDate()).padStart(2, '0');
-    const logDateStr = `${logYear}-${logMonth}-${logDay}`;
+    const logDateStr = extractDateFromTimestamp(log.timestamp);
     const matchesDate = logDateStr === normalizedSelectedDate;
     return matchesDate;
   });

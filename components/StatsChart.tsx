@@ -71,13 +71,17 @@ const StatsChart: React.FC<StatsChartProps> = ({ data, selectedDate, onDateSelec
             }}
             itemStyle={{ color: '#e2e8f0' }}
             labelFormatter={(label) => {
-              const d = getMSTDate(label);
-              return new Intl.DateTimeFormat('en-US', { 
-                timeZone: 'America/Denver',
-                weekday: 'long', 
-                month: 'long', 
-                day: 'numeric' 
-              }).format(d);
+              try {
+                const [year, month, day] = label.split('-').map(Number);
+                const d = new Date(year, month - 1, day);
+                return new Intl.DateTimeFormat('en-US', { 
+                  weekday: 'long', 
+                  month: 'long', 
+                  day: 'numeric' 
+                }).format(d);
+              } catch (e) {
+                return label;
+              }
             }}
           />
           <Bar dataKey="changes" radius={[4, 4, 0, 0]} barSize={40}>
