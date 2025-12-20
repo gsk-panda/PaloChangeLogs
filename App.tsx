@@ -14,7 +14,18 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayMST());
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    try {
+      return getTodayMST();
+    } catch (e) {
+      console.warn('Error initializing date:', e);
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  });
 
   const loadData = async (targetDate: string) => {
     setLoading(true);
@@ -58,13 +69,28 @@ const App: React.FC = () => {
   const changeCount = tableLogs.length;
   const totalWindowChanges = allLogs.length;
   
-  const selectedDateObj = getMSTDate(selectedDate);
-  const displayDateLabel = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Denver',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  }).format(selectedDateObj);
+  const selectedDateObj = (() => {
+    try {
+      return getMSTDate(selectedDate);
+    } catch (e) {
+      console.warn('Error creating selectedDateObj:', e);
+      return new Date(selectedDate);
+    }
+  })();
+  
+  const displayDateLabel = (() => {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Denver',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      }).format(selectedDateObj);
+    } catch (e) {
+      console.warn('Error formatting display date:', e);
+      return selectedDate;
+    }
+  })();
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
