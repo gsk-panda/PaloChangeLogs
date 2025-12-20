@@ -1,6 +1,6 @@
 import { ChangeRecord, DailyStat, AdminStat, ChangeType, ActionType, CommitStatus } from '../types';
 import { PANORAMA_CONFIG } from '../constants';
-import { getMSTDate, getMSTDateString, parsePanoramaTimestamp, formatMSTDate } from '../utils/dateUtils';
+import { getMSTDate, getMSTDateString, parsePanoramaTimestamp } from '../utils/dateUtils';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
