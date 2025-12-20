@@ -101,9 +101,6 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
     const bLines = splitText(before);
     const aLines = splitText(after);
 
-    const bSet = new Set(bLines.map(l => l.trim()).filter(l => l.length > 0));
-    const aSet = new Set(aLines.map(l => l.trim()).filter(l => l.length > 0));
-
     const lineDiffsMap = new Map<number, { before: DiffSegment[], after: DiffSegment[], afterIdx: number }>();
     const usedAfterIndices = new Set<number>();
     
@@ -152,12 +149,12 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
     const bSet = new Set(beforeLines.map(l => l.trim()).filter(l => l.length > 0));
     const aSet = new Set(afterLines.map(l => l.trim()).filter(l => l.length > 0));
     
-    const removed = beforeLines.filter((line, idx) => {
+    const removed = beforeLines.filter((line) => {
       const trimmed = line.trim();
       return trimmed.length > 0 && !aSet.has(trimmed);
     }).length;
     
-    const added = afterLines.filter((line, idx) => {
+    const added = afterLines.filter((line) => {
       const trimmed = line.trim();
       return trimmed.length > 0 && !bSet.has(trimmed);
     }).length;
@@ -169,7 +166,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
     if (side === 'before') {
       return lineDiffs.get(idx);
     } else {
-      for (const [bIdx, diff] of lineDiffs.entries()) {
+      for (const [, diff] of lineDiffs.entries()) {
         if (diff.afterIdx === idx) {
           return diff;
         }
