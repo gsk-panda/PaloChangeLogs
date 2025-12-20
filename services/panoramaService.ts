@@ -185,6 +185,7 @@ export const fetchChangeLogsRange = async (startDate: string, endDate: string): 
 
 /**
  * Calculates daily statistics for a specific 7-day range
+ * Only counts logs that have a description (matching Change Log table filter)
  */
 export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: string): DailyStat[] => {
     const statsMap = new Map<string, number>();
@@ -198,6 +199,9 @@ export const calculateDailyStatsInRange = (logs: ChangeRecord[], endDateStr: str
     }
   
     logs.forEach(log => {
+      const hasDescription = log.description && log.description.trim().length > 0;
+      if (!hasDescription) return;
+      
       const logDateObj = parsePanoramaTimestamp(log.timestamp);
       const dateKey = formatMSTDate(logDateObj);
       if (statsMap.has(dateKey)) {
