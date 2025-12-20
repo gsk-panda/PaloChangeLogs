@@ -104,12 +104,13 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
     const lineDiffsMap = new Map<number, { before: DiffSegment[], after: DiffSegment[], afterIdx: number }>();
     const usedAfterIndices = new Set<number>();
     
-    bLines.forEach((bLine, bIdx) => {
+    const findBestMatch = (bLine: string, bIdx: number) => {
       const trimmedB = bLine.trim();
-      if (trimmedB.length === 0) return;
+      if (trimmedB.length === 0) return null;
       
       let bestMatchIdx = -1;
       let bestMatchScore = 0;
+      let bestMatchType: 'exact' | 'prefix' | 'contains' = 'exact';
       
       aLines.forEach((aLine, aIdx) => {
         if (usedAfterIndices.has(aIdx)) return;
@@ -119,6 +120,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
         if (trimmedA === trimmedB) {
           bestMatchIdx = aIdx;
           bestMatchScore = 1;
+          bestMatchType = 'exact';
           return;
         }
         
@@ -128,17 +130,51 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
           prefixMatch++;
         }
         
-        const similarity = prefixMatch / Math.max(trimmedA.length, trimmedB.length);
-        if (similarity > 0.5 && similarity > bestMatchScore) {
-          bestMatchIdx = aIdx;
-          bestMatchScore = similarity;
+        if (prefixMatch >= 3) {
+          const minLen = Math.min(trimmedA.length, trimmedB.length);
+          const prefixRatio = prefixMatch / minLen;
+          const overallSimilarity = prefixMatch / Math.max(trimmedA.length, trimmedB.length);
+          
+          if (prefixRatio >= 0.3 || (prefixMatch >= 5 && overallSimilarity > 0.15)) {
+            if (overallSimilarity > bestMatchScore || prefixRatio > 0.5) {
+              bestMatchIdx = aIdx;
+              bestMatchScore = Math.max(bestMatchScore, overallSimilarity);
+              bestMatchType = 'prefix';
+            }
+          }
+        }
+        
+        const checkPrefix = (str1: string, str2: string, len: number) => {
+          return str1.substring(0, Math.min(len, str1.length)) === str2.substring(0, Math.min(len, str2.length));
+        };
+        
+        if (checkPrefix(trimmedA, trimmedB, 5) || checkPrefix(trimmedB, trimmedA, 5)) {
+          const minLen = Math.min(trimmedA.length, trimmedB.length);
+          const similarity = minLen / Math.max(trimmedA.length, trimmedB.length);
+          if (similarity > bestMatchScore || minLen >= 5) {
+            bestMatchIdx = aIdx;
+            bestMatchScore = Math.max(bestMatchScore, similarity);
+            bestMatchType = 'contains';
+          }
         }
       });
       
-      if (bestMatchIdx >= 0 && bestMatchScore < 1) {
-        const aLine = aLines[bestMatchIdx];
-        lineDiffsMap.set(bIdx, { ...computeWordDiff(bLine, aLine), afterIdx: bestMatchIdx });
-        usedAfterIndices.add(bestMatchIdx);
+      if (bestMatchIdx >= 0 && bestMatchScore < 1 && bestMatchType !== 'exact') {
+        return { idx: bestMatchIdx, score: bestMatchScore };
+      }
+      
+      return null;
+    };
+    
+    bLines.forEach((bLine, bIdx) => {
+      const trimmedB = bLine.trim();
+      if (trimmedB.length === 0) return;
+      
+      const match = findBestMatch(bLine, bIdx);
+      if (match) {
+        const aLine = aLines[match.idx];
+        lineDiffsMap.set(bIdx, { ...computeWordDiff(bLine, aLine), afterIdx: match.idx });
+        usedAfterIndices.add(match.idx);
       }
     });
 
@@ -182,18 +218,10 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
     
     if (side === 'before') {
       const trimmed = line.trim();
-      const isCompletelyRemoved = trimmed.length > 0 && !aSet.has(trimmed);
+      const hasExactMatch = aSet.has(trimmed);
+      const hasPartialMatch = diff !== null;
       
-      if (isCompletelyRemoved) {
-        return (
-          <div key={idx} className="px-4 py-0.5 whitespace-pre-wrap break-all flex text-slate-400 border-l-2 border-transparent">
-            <span className="w-6 inline-block text-slate-700 select-none text-[10px] text-right mr-3">{idx + 1}</span>
-            <span className="bg-red-900/20 text-red-300">{line}</span>
-          </div>
-        );
-      }
-      
-      if (diff) {
+      if (hasPartialMatch) {
         return (
           <div key={idx} className="px-4 py-0.5 whitespace-pre-wrap break-all flex text-slate-400 border-l-2 border-transparent">
             <span className="w-6 inline-block text-slate-700 select-none text-[10px] text-right mr-3">{idx + 1}</span>
@@ -211,6 +239,23 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
         );
       }
       
+      if (!hasExactMatch && trimmed.length > 0) {
+        const hasPrefixMatch = Array.from(aSet).some(a => {
+          const trimmedA = a.trim();
+          return trimmedA.startsWith(trimmed.substring(0, Math.min(trimmed.length, 10))) ||
+                 trimmed.startsWith(trimmedA.substring(0, Math.min(trimmedA.length, 10)));
+        });
+        
+        if (!hasPrefixMatch) {
+          return (
+            <div key={idx} className="px-4 py-0.5 whitespace-pre-wrap break-all flex text-slate-400 border-l-2 border-transparent">
+              <span className="w-6 inline-block text-slate-700 select-none text-[10px] text-right mr-3">{idx + 1}</span>
+              <span className="bg-red-900/20 text-red-300">{line}</span>
+            </div>
+          );
+        }
+      }
+      
       return (
         <div key={idx} className="px-4 py-0.5 whitespace-pre-wrap break-all flex text-slate-400 border-l-2 border-transparent">
           <span className="w-6 inline-block text-slate-700 select-none text-[10px] text-right mr-3">{idx + 1}</span>
@@ -219,18 +264,10 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
       );
     } else {
       const trimmed = line.trim();
-      const isCompletelyAdded = trimmed.length > 0 && !bSet.has(trimmed);
+      const hasExactMatch = bSet.has(trimmed);
+      const hasPartialMatch = diff !== null;
       
-      if (isCompletelyAdded) {
-        return (
-          <div key={idx} className="px-4 py-0.5 whitespace-pre-wrap break-all flex text-slate-400 border-l-2 border-transparent">
-            <span className="w-6 inline-block text-slate-700 select-none text-[10px] text-right mr-3">{idx + 1}</span>
-            <span className="bg-emerald-900/20 text-emerald-300">{line}</span>
-          </div>
-        );
-      }
-      
-      if (diff) {
+      if (hasPartialMatch) {
         return (
           <div key={idx} className="px-4 py-0.5 whitespace-pre-wrap break-all flex text-slate-400 border-l-2 border-transparent">
             <span className="w-6 inline-block text-slate-700 select-none text-[10px] text-right mr-3">{idx + 1}</span>
@@ -246,6 +283,23 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ before, after }) => {
             </span>
           </div>
         );
+      }
+      
+      if (!hasExactMatch && trimmed.length > 0) {
+        const hasPrefixMatch = Array.from(bSet).some(b => {
+          const trimmedB = b.trim();
+          return trimmedB.startsWith(trimmed.substring(0, Math.min(trimmed.length, 10))) ||
+                 trimmed.startsWith(trimmedB.substring(0, Math.min(trimmedB.length, 10)));
+        });
+        
+        if (!hasPrefixMatch) {
+          return (
+            <div key={idx} className="px-4 py-0.5 whitespace-pre-wrap break-all flex text-slate-400 border-l-2 border-transparent">
+              <span className="w-6 inline-block text-slate-700 select-none text-[10px] text-right mr-3">{idx + 1}</span>
+              <span className="bg-emerald-900/20 text-emerald-300">{line}</span>
+            </div>
+          );
+        }
       }
       
       return (

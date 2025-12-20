@@ -3,6 +3,7 @@ import { ChevronDown, AlertCircle, Loader2, GitCommit, User } from 'lucide-react
 import { ChangeRecord, ActionType } from '../types';
 import DiffViewer from './DiffViewer';
 import { fetchLogDetail, parseDetailedXml } from '../services/panoramaService';
+import { parsePanoramaTimestamp, formatMSTDateTime } from '../utils/dateUtils';
 
 interface ChangeLogTableProps {
   changes: ChangeRecord[];
@@ -88,10 +89,17 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                   }`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-300 font-mono">
-                    {new Date(change.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false})}
-                    <span className="text-slate-500 ml-2 text-xs font-normal">
-                      {new Date(change.timestamp).toLocaleDateString()}
-                    </span>
+                    {(() => {
+                      const dateTime = formatMSTDateTime(parsePanoramaTimestamp(change.timestamp));
+                      return (
+                        <>
+                          {dateTime.time}
+                          <span className="text-slate-500 ml-2 text-xs font-normal">
+                            {dateTime.date}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
@@ -102,9 +110,6 @@ const ChangeLogTable: React.FC<ChangeLogTableProps> = ({ changes }) => {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-400 truncate max-w-lg" title={change.description}>
-                    <span className="font-mono text-xs bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded border border-slate-700 mr-2">
-                       {change.seqno}
-                    </span>
                     {change.description}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">

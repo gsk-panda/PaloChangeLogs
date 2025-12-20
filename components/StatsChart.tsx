@@ -1,6 +1,7 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { DailyStat } from '../types';
+import { getMSTDate } from '../utils/dateUtils';
 
 interface StatsChartProps {
   data: DailyStat[];
@@ -40,8 +41,12 @@ const StatsChart: React.FC<StatsChartProps> = ({ data, selectedDate, onDateSelec
             tickLine={false}
             tickMargin={10}
             tickFormatter={(value) => {
-              const d = new Date(value);
-              return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+              const d = getMSTDate(value);
+              return new Intl.DateTimeFormat('en-US', { 
+                timeZone: 'America/Denver',
+                month: 'short', 
+                day: 'numeric' 
+              }).format(d);
             }}
           />
           <YAxis 
@@ -62,7 +67,13 @@ const StatsChart: React.FC<StatsChartProps> = ({ data, selectedDate, onDateSelec
             }}
             itemStyle={{ color: '#e2e8f0' }}
             labelFormatter={(label) => {
-              return new Date(label).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+              const d = getMSTDate(label);
+              return new Intl.DateTimeFormat('en-US', { 
+                timeZone: 'America/Denver',
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric' 
+              }).format(d);
             }}
           />
           <Bar dataKey="changes" radius={[4, 4, 0, 0]} barSize={40}>

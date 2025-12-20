@@ -5,6 +5,7 @@ import StatsChart from './components/StatsChart';
 import { Bell, Calendar, AlertTriangle, RefreshCw, User, Award, Activity, Layers, ShieldCheck } from 'lucide-react';
 import { ChangeRecord, DailyStat, AdminStat } from './types';
 import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
+import { getTodayMST, getMSTDate, getMSTDateString, parsePanoramaTimestamp, formatMSTDate } from './utils/dateUtils';
 
 const App: React.FC = () => {
   const [allLogs, setAllLogs] = useState<ChangeRecord[]>([]);
@@ -13,19 +14,18 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayMST());
 
   const loadData = async (targetDate: string) => {
     setLoading(true);
     setError(null);
     try {
-      // Calculate 7 day range ending at targetDate
-      const end = new Date(targetDate);
-      const start = new Date(targetDate);
+      const end = getMSTDate(targetDate);
+      const start = getMSTDate(targetDate);
       start.setDate(end.getDate() - 6);
 
-      const startDateStr = start.toISOString().split('T')[0];
-      const endDateStr = end.toISOString().split('T')[0];
+      const startDateStr = getMSTDateString(start);
+      const endDateStr = getMSTDateString(end);
 
       const fetchedLogs = await fetchChangeLogsRange(startDateStr, endDateStr);
       
@@ -48,8 +48,9 @@ const App: React.FC = () => {
   }, [selectedDate]);
 
   const tableLogs = allLogs.filter(log => {
-    const logDate = log.timestamp.split(' ')[0].replace(/\//g, '-');
-    const matchesDate = logDate === selectedDate;
+    const logDateObj = parsePanoramaTimestamp(log.timestamp);
+    const logDateMST = formatMSTDate(logDateObj);
+    const matchesDate = logDateMST === selectedDate;
     const hasDescription = log.description && log.description.trim().length > 0;
     return matchesDate && hasDescription;
   });
@@ -57,11 +58,13 @@ const App: React.FC = () => {
   const changeCount = tableLogs.length;
   const totalWindowChanges = allLogs.length;
   
-  const displayDateLabel = new Date(selectedDate).toLocaleDateString('en-US', { 
-    month: 'long', 
-    day: 'numeric', 
-    year: 'numeric' 
-  });
+  const selectedDateObj = getMSTDate(selectedDate);
+  const displayDateLabel = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  }).format(selectedDateObj);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
@@ -137,7 +140,7 @@ const App: React.FC = () => {
             {/* Stats Cards Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard 
-                title={`Changes on ${new Date(selectedDate).toLocaleDateString([], {month: 'short', day: 'numeric'})}`}
+                title={`Changes on ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' }).format(selectedDateObj)}`}
                 value={changeCount.toString()} 
                 trend={changeCount > 0 ? "Changes Detected" : "No Activity"} 
                 trendUp={changeCount > 0} 
