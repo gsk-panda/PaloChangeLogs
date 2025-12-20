@@ -112,9 +112,22 @@ export const parsePanoramaTimestamp = (timestampStr: string): Date => {
   try {
     const parts = timestampStr.split(' ');
     if (parts.length >= 2) {
-      const datePart = parts[0].replace(/\//g, '-');
+      const datePart = parts[0];
       const timePart = parts[1] || '00:00:00';
-      const [year, month, day] = datePart.split('-').map(Number);
+      
+      const dateComponents = datePart.split(/[-\/]/).map(Number);
+      let year: number, month: number, day: number;
+      
+      if (dateComponents.length === 3) {
+        if (dateComponents[0] > 1000) {
+          [year, month, day] = dateComponents;
+        } else {
+          [month, day, year] = dateComponents;
+        }
+      } else {
+        return new Date();
+      }
+      
       const [hours, minutes, seconds] = timePart.split(':').map(s => parseInt(s) || 0);
       
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;

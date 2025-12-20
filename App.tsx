@@ -40,8 +40,13 @@ const App: React.FC = () => {
 
       const fetchedLogs = await fetchChangeLogsRange(startDateStr, endDateStr);
       
-      const dailyStats = calculateDailyStatsInRange(fetchedLogs, endDateStr);
-      const admins = calculateAdminStats(fetchedLogs);
+      const filteredLogs = fetchedLogs.filter(log => {
+        const hasDescription = log.description && log.description.trim().length > 0;
+        return hasDescription;
+      });
+      
+      const dailyStats = calculateDailyStatsInRange(filteredLogs, endDateStr);
+      const admins = calculateAdminStats(filteredLogs);
       
       setAllLogs(fetchedLogs);
       setStats(dailyStats);
@@ -58,16 +63,20 @@ const App: React.FC = () => {
     loadData(selectedDate);
   }, [selectedDate]);
 
-  const tableLogs = allLogs.filter(log => {
+  const filteredLogs = allLogs.filter(log => {
+    const hasDescription = log.description && log.description.trim().length > 0;
+    return hasDescription;
+  });
+
+  const tableLogs = filteredLogs.filter(log => {
     const logDateObj = parsePanoramaTimestamp(log.timestamp);
     const logDateMST = formatMSTDate(logDateObj);
     const matchesDate = logDateMST === selectedDate;
-    const hasDescription = log.description && log.description.trim().length > 0;
-    return matchesDate && hasDescription;
+    return matchesDate;
   });
   
   const changeCount = tableLogs.length;
-  const totalWindowChanges = allLogs.length;
+  const totalWindowChanges = filteredLogs.length;
   
   const selectedDateObj = (() => {
     try {
