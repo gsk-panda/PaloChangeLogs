@@ -71,16 +71,18 @@ const pollForJobResults = async (jobId: string): Promise<string> => {
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, "text/xml");
         
+        const respStatus = doc.querySelector("response")?.getAttribute("status");
+        if (respStatus === 'error') {
+            const msg = doc.querySelector("result msg")?.textContent?.trim() || 
+                       doc.querySelector("msg")?.textContent?.trim() ||
+                       "Unknown job error";
+            throw new Error(`Job failed: ${msg}`);
+        }
+        
         if (doc.querySelectorAll("entry").length > 0) return text;
 
         const jobStatus = doc.querySelector("job status")?.textContent;
-        if (jobStatus === 'COMPLETE' || jobStatus === 'FIN') return text; 
-
-        const respStatus = doc.querySelector("response")?.getAttribute("status");
-        if (respStatus === 'error') {
-            const msg = doc.querySelector("result msg")?.textContent || "Unknown job error";
-            throw new Error(`Job failed: ${msg}`);
-        }
+        if (jobStatus === 'COMPLETE' || jobStatus === 'FIN') return text;
 
         await delay(1000);
         attempts++;
@@ -115,6 +117,15 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, "text/xml");
+        
+        const respStatus = doc.querySelector("response")?.getAttribute("status");
+        if (respStatus === "error") {
+            const errorMsg = doc.querySelector("result msg")?.textContent?.trim() || 
+                           doc.querySelector("msg")?.textContent?.trim() ||
+                           "Unknown API Error";
+            throw new Error(`Panorama API error: ${errorMsg}`);
+        }
+        
         const jobNode = doc.querySelector("result job");
         const isJobIdOnly = jobNode && !doc.querySelector("result job status");
         
@@ -171,7 +182,10 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
   
   const status = xmlDoc.querySelector("response")?.getAttribute("status");
   if (status === "error") {
-    const msg = xmlDoc.querySelector("result msg")?.textContent || "Unknown API Error";
+    const msg = xmlDoc.querySelector("result msg")?.textContent?.trim() || 
+                xmlDoc.querySelector("msg")?.textContent?.trim() ||
+                xmlDoc.querySelector("result")?.textContent?.trim() ||
+                "Unknown API Error";
     throw new Error(`Panorama API returned error: ${msg}`);
   }
 
