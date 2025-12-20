@@ -221,14 +221,56 @@ EOF
 systemctl daemon-reload
 
 echo ""
-echo "Step 12: Creating data directory for database..."
+echo "Step 12: Creating update script..."
+UPDATE_SCRIPT="$INSTALL_DIR/update.sh"
+cat > "$UPDATE_SCRIPT" << 'UPDATE_EOF'
+#!/bin/bash
+set -e
+
+INSTALL_DIR="/opt/palo-changelogs"
+SERVICE_USER="palo-changelogs"
+
+if [ "$EUID" -eq 0 ]; then
+    echo "Running update as root, switching to $SERVICE_USER..."
+    su - $SERVICE_USER -c "cd $INSTALL_DIR && $0"
+    exit $?
+fi
+
+cd "$INSTALL_DIR"
+
+echo "Pulling latest changes..."
+git fetch origin
+git checkout feature/database-storage
+git pull origin feature/database-storage
+
+echo "Installing dependencies..."
+npm install
+
+echo "Building application..."
+export NODE_OPTIONS="--openssl-legacy-provider"
+npm run build
+
+echo "Update complete! Restarting services..."
+sudo systemctl restart palo-changelogs-backend
+sudo systemctl restart palo-changelogs-frontend
+
+echo "Services restarted. Check status with:"
+echo "  systemctl status palo-changelogs-backend"
+echo "  systemctl status palo-changelogs-frontend"
+UPDATE_EOF
+chmod +x "$UPDATE_SCRIPT"
+chown "$SERVICE_USER:$SERVICE_USER" "$UPDATE_SCRIPT"
+echo "Update script created at $UPDATE_SCRIPT"
+
+echo ""
+echo "Step 13: Creating data directory for database..."
 mkdir -p "$INSTALL_DIR/data"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR/data"
 chmod 755 "$INSTALL_DIR/data"
 echo "Database directory created at $INSTALL_DIR/data"
 
 echo ""
-echo "Step 13: Configuring SSL certificate..."
+echo "Step 14: Configuring SSL certificate..."
 SSL_DIR="/etc/nginx/ssl"
 mkdir -p "$SSL_DIR"
 SSL_CERT="$SSL_DIR/panovision.officeours.com.crt"
@@ -249,7 +291,7 @@ else
 fi
 
 echo ""
-echo "Step 14: Configuring NGINX reverse proxy..."
+echo "Step 15: Configuring NGINX reverse proxy..."
 NGINX_CONF="/etc/nginx/conf.d/palo-changelogs.conf"
 cat > "$NGINX_CONF" << 'NGINX_EOF'
 upstream backend_api {
@@ -331,7 +373,7 @@ NGINX_EOF
 echo "NGINX configuration created at $NGINX_CONF"
 
 echo ""
-echo "Step 15: Testing NGINX configuration..."
+echo "Step 16: Testing NGINX configuration..."
 nginx -t
 if [ $? -eq 0 ]; then
     echo "NGINX configuration is valid"
@@ -340,7 +382,7 @@ else
 fi
 
 echo ""
-echo "Step 16: Configuring firewall..."
+echo "Step 17: Configuring firewall..."
 if command -v firewall-cmd &> /dev/null; then
     firewall-cmd --permanent --add-service=http
     firewall-cmd --permanent --add-service=https
@@ -351,7 +393,7 @@ else
 fi
 
 echo ""
-echo "Step 17: Enabling and starting NGINX..."
+echo "Step 18: Enabling and starting NGINX..."
 systemctl enable nginx
 systemctl restart nginx
 echo "NGINX enabled and started"
