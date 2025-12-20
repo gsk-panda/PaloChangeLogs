@@ -5,6 +5,7 @@ import StatsChart from './components/StatsChart';
 import { Bell, Calendar, AlertTriangle, RefreshCw, User, Award, Activity, Layers, ShieldCheck } from 'lucide-react';
 import { ChangeRecord, DailyStat, AdminStat } from './types';
 import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
+import { fetchChangeLogsFromDatabase, checkDateInDatabase } from './services/databaseService';
 import { getTodayMST, getMSTDate, extractDateFromTimestamp, addDaysToDateString } from './utils/dateUtils';
 
 const App: React.FC = () => {
@@ -39,8 +40,34 @@ const App: React.FC = () => {
         return targetDate;
       })();
       const startDateStr = addDaysToDateString(endDateStr, -6);
+      const today = getTodayMST();
 
-      const fetchedLogs = await fetchChangeLogsRange(startDateStr, endDateStr);
+      let fetchedLogs: ChangeRecord[] = [];
+      
+      const isEndDateToday = endDateStr === today;
+      const isStartDateToday = startDateStr === today;
+      
+      if (isEndDateToday || isStartDateToday) {
+        const panoramaStart = isStartDateToday ? startDateStr : today;
+        const panoramaEnd = isEndDateToday ? endDateStr : today;
+        
+        const panoramaLogs = await fetchChangeLogsRange(panoramaStart, panoramaEnd);
+        fetchedLogs.push(...panoramaLogs);
+      }
+      
+      if (!isStartDateToday) {
+        const dbStart = isStartDateToday ? addDaysToDateString(startDateStr, 1) : startDateStr;
+        const dbEnd = isEndDateToday ? addDaysToDateString(endDateStr, -1) : endDateStr;
+        
+        if (dbStart <= dbEnd) {
+          try {
+            const dbLogs = await fetchChangeLogsFromDatabase(dbStart, dbEnd);
+            fetchedLogs.push(...dbLogs);
+          } catch (dbError) {
+            console.warn('Failed to fetch from database, continuing with Panorama data only:', dbError);
+          }
+        }
+      }
       
       const filteredLogs = fetchedLogs.filter(log => {
         const hasDescription = log.description && log.description.trim().length > 0;
@@ -55,7 +82,7 @@ const App: React.FC = () => {
       setAdminStats(admins);
     } catch (err: any) {
       console.error("Failed to load data", err);
-      setError(err.message || "Failed to connect to Panorama.");
+      setError(err.message || "Failed to load change logs.");
     } finally {
       setLoading(false);
     }

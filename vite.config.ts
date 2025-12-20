@@ -12,9 +12,13 @@ export default defineConfig({
       '/panorama-proxy': {
         target: 'https://panorama.officeours.com',
         changeOrigin: true,
-        secure: false, // Accept self-signed certificates from Panorama
+        secure: false,
         rewrite: (path) => path.replace(/^\/panorama-proxy/, ''),
-        followRedirects: true, // Handle server redirects (e.g. 301/302) automatically
+        followRedirects: true,
+      },
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
       }
     }
   }
