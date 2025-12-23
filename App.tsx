@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChangeLogTable from './components/ChangeLogTable';
 import StatsChart from './components/StatsChart';
-import { Bell, Calendar, AlertTriangle, RefreshCw, User, Award, Activity, Layers, ShieldCheck } from 'lucide-react';
+import { Bell, Calendar, AlertTriangle, RefreshCw, User, Award, Activity, Layers, ShieldCheck, Search, ChevronDown } from 'lucide-react';
 import { ChangeRecord, DailyStat, AdminStat } from './types';
 import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
 import { fetchChangeLogsFromDatabase } from './services/databaseService';
@@ -28,18 +28,61 @@ const App: React.FC = () => {
     }
   });
 
-  const loadData = async (targetDate: string) => {
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [timeRange, setTimeRange] = useState<string>('30days');
+  const [isSearchMode, setIsSearchMode] = useState<boolean>(true);
+
+  const getDateRangeForTimeRange = (range: string): { startDate: string; endDate: string } => {
+    const today = getTodayMST();
+    let daysBack = 30;
+    
+    switch (range) {
+      case '7days':
+        daysBack = 7;
+        break;
+      case '30days':
+        daysBack = 30;
+        break;
+      case '3months':
+        daysBack = 90;
+        break;
+      case '6months':
+        daysBack = 180;
+        break;
+      case '1year':
+        daysBack = 365;
+        break;
+      default:
+        daysBack = 30;
+    }
+    
+    const endDateStr = today;
+    const startDateStr = addDaysToDateString(endDateStr, -daysBack);
+    
+    return { startDate: startDateStr, endDate: endDateStr };
+  };
+
+  const loadData = async (input: string) => {
     setLoading(true);
     setError(null);
     try {
-      const endDateStr = (() => {
-        const [year, month, day] = targetDate.split('-').map(Number);
+      let startDateStr: string;
+      let endDateStr: string;
+      
+      if (input === '7days' || input === '30days' || input === '3months' || input === '6months' || input === '1year') {
+        const range = getDateRangeForTimeRange(input);
+        startDateStr = range.startDate;
+        endDateStr = range.endDate;
+      } else {
+        const [year, month, day] = input.split('-').map(Number);
         if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-          return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        } else {
+          endDateStr = input;
         }
-        return targetDate;
-      })();
-      const startDateStr = addDaysToDateString(endDateStr, -6);
+        startDateStr = addDaysToDateString(endDateStr, -6);
+      }
+      
       const today = getTodayMST();
 
       let fetchedLogs: ChangeRecord[] = [];
@@ -89,8 +132,18 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    loadData(selectedDate);
-  }, [selectedDate]);
+    if (isSearchMode) {
+      loadData(timeRange);
+    } else {
+      loadData(selectedDate);
+    }
+  }, [timeRange, isSearchMode]);
+
+  useEffect(() => {
+    if (!isSearchMode) {
+      loadData(selectedDate);
+    }
+  }, [selectedDate, isSearchMode]);
 
   const filteredLogs = allLogs.filter(log => {
     const hasDescription = log.description && log.description.trim().length > 0;
@@ -109,11 +162,28 @@ const App: React.FC = () => {
     }
   })();
 
-  const tableLogs = filteredLogs.filter(log => {
-    const logDateStr = extractDateFromTimestamp(log.timestamp);
-    const matchesDate = logDateStr === normalizedSelectedDate;
-    return matchesDate;
-  });
+  const tableLogs = (() => {
+    let logs = filteredLogs;
+    
+    if (isSearchMode) {
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        logs = logs.filter(log => {
+          const matchesDescription = log.description?.toLowerCase().includes(searchLower) || false;
+          const matchesAdmin = log.admin?.toLowerCase().includes(searchLower) || false;
+          return matchesDescription || matchesAdmin;
+        });
+      }
+    } else {
+      logs = logs.filter(log => {
+        const logDateStr = extractDateFromTimestamp(log.timestamp);
+        const matchesDate = logDateStr === normalizedSelectedDate;
+        return matchesDate;
+      });
+    }
+    
+    return logs;
+  })();
   
   const changeCount = tableLogs.length;
   const totalWindowChanges = filteredLogs.length;
@@ -152,6 +222,8 @@ const App: React.FC = () => {
       if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
         const normalizedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         setSelectedDate(normalizedDate);
+        setIsSearchMode(false);
+        setSearchTerm('');
       } else {
         setSelectedDate(date);
       }
@@ -221,7 +293,13 @@ const App: React.FC = () => {
                       <p className="text-sm text-red-300/80 mt-0.5">{error}</p>
                     </div>
                   </div>
-                  <button onClick={() => loadData(selectedDate)} className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-red-500/30 text-red-300 text-sm font-medium rounded-lg hover:bg-slate-800 hover:shadow-sm transition-all">
+                  <button onClick={() => {
+                    if (isSearchMode) {
+                      loadData(timeRange);
+                    } else {
+                      loadData(selectedDate);
+                    }
+                  }} className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-red-500/30 text-red-300 text-sm font-medium rounded-lg hover:bg-slate-800 hover:shadow-sm transition-all">
                     <RefreshCw size={14} /> Retry
                   </button>
                 </div>
@@ -326,12 +404,53 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* Search and Filter Section */}
+            <div className="bg-slate-900 p-6 rounded-xl shadow-lg shadow-black/20 border border-slate-800">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 flex items-center gap-2 bg-slate-800 border border-slate-700 px-4 py-2.5 rounded-lg focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/50 transition-all">
+                  <Search size={18} className="text-slate-500 flex-shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Search by rule name, admin, or description..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setIsSearchMode(true);
+                    }}
+                    className="flex-1 bg-transparent border-none outline-none text-slate-300 placeholder-slate-500 text-sm"
+                  />
+                </div>
+                <div className="relative">
+                  <select
+                    value={timeRange}
+                    onChange={(e) => {
+                      setTimeRange(e.target.value);
+                      setIsSearchMode(true);
+                    }}
+                    className="appearance-none bg-slate-800 border border-slate-700 px-4 py-2.5 pr-10 rounded-lg text-slate-300 text-sm font-medium cursor-pointer hover:border-orange-500/50 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 transition-all"
+                  >
+                    <option value="7days">Last 7 Days</option>
+                    <option value="30days">Last 30 Days</option>
+                    <option value="3months">Last 3 Months</option>
+                    <option value="6months">Last 6 Months</option>
+                    <option value="1year">Last Year</option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
             {/* Log Table for Selected Day */}
             <div className="space-y-4">
                <div className="flex items-center justify-between">
                    <div>
                      <h2 className="text-lg font-bold text-white">Change Log</h2>
-                     <p className="text-slate-500 text-sm mt-0.5">Detailed records for {displayDateLabel}</p>
+                     <p className="text-slate-500 text-sm mt-0.5">
+                       {isSearchMode
+                         ? `Search results ${searchTerm ? `for "${searchTerm}"` : ''} (${timeRange === '7days' ? 'Last 7 Days' : timeRange === '30days' ? 'Last 30 Days' : timeRange === '3months' ? 'Last 3 Months' : timeRange === '6months' ? 'Last 6 Months' : 'Last Year'})`
+                         : `Detailed records for ${displayDateLabel}`
+                       }
+                     </p>
                    </div>
                    <div className="text-xs font-medium px-3 py-1 bg-slate-900 border border-slate-800 rounded-full text-slate-400 shadow-sm">
                      {changeCount} total entries
