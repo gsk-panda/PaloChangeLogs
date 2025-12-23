@@ -1,6 +1,6 @@
 import { ChangeRecord } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '';
+const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? '' : 'http://localhost:3001');
 
 export const fetchChangeLogsFromDatabase = async (startDate: string, endDate: string): Promise<ChangeRecord[]> => {
   try {

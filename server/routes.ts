@@ -53,5 +53,9 @@ router.get('/api/changelogs/count', (req, res) => {
   }
 });
 
+router.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 export default router;
 
