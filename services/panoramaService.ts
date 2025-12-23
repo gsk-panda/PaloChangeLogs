@@ -52,15 +52,41 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
     const url = `${HOST}/api/?${queryParams}&key=${encodeURIComponent(API_KEY)}&_t=${Date.now()}`;
 
     try {
-        // Attempt actual fetch
+        console.log('Panorama API Request:', url.substring(0, 150) + '...');
         const response = await fetch(url, {
             headers: { 'Accept': 'application/xml' }
         });
         
         if (!response.ok) {
-             if (response.status === 404) throw new Error(`Endpoint not found (404).`);
-             if (response.status === 403) throw new Error(`Access Denied (403).`);
-             throw new Error(`API Request Failed: ${response.status}`);
+            let errorText = '';
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                errorText = 'Could not read error response';
+            }
+            
+            console.error(`Panorama API Error (${response.status}):`, {
+                url: url.substring(0, 200),
+                status: response.status,
+                statusText: response.statusText,
+                responseText: errorText.substring(0, 500)
+            });
+            
+            if (response.status === 404) {
+                const parser = new DOMParser();
+                const errorDoc = parser.parseFromString(errorText || '<response/>', 'text/xml');
+                const apiErrorMsg = errorDoc.querySelector('msg')?.textContent?.trim() || 
+                                   errorDoc.querySelector('result msg')?.textContent?.trim();
+                
+                if (apiErrorMsg) {
+                    throw new Error(`Panorama API error: ${apiErrorMsg}`);
+                }
+                throw new Error(`Endpoint not found (404). Check if the Panorama API endpoint is correct.`);
+            }
+            if (response.status === 403) {
+                throw new Error(`Access Denied (403). Check API key permissions.`);
+            }
+            throw new Error(`API Request Failed: ${response.status} ${response.statusText}`);
         }
         
         const text = await response.text();
