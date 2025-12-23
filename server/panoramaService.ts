@@ -16,14 +16,19 @@ const pollForJobResults = async (jobId: string): Promise<string> => {
     const pollUrl = `${PANORAMA_HOST}/api/?type=log&action=get&job-id=${jobId}&key=${encodeURIComponent(PANORAMA_API_KEY)}`;
     
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 60;
+
+    console.log(`[Polling] Starting to poll for job ${jobId}, max attempts: ${maxAttempts}`);
 
     while (attempts < maxAttempts) {
         const response = await fetch(pollUrl, {
              headers: { 'Accept': 'application/xml' }
         });
         
-        if (!response.ok) throw new Error(`Polling failed: ${response.status}`);
+        if (!response.ok) {
+            console.log(`[Polling] Attempt ${attempts + 1}: HTTP ${response.status}`);
+            throw new Error(`Polling failed: ${response.status}`);
+        }
         
         const text = await response.text();
         const doc = parser.parse(text);
@@ -33,17 +38,39 @@ const pollForJobResults = async (jobId: string): Promise<string> => {
             const msg = doc.response?.result?.msg?.['#text'] || 
                        doc.response?.msg?.['#text'] ||
                        "Unknown job error";
+            console.log(`[Polling] Attempt ${attempts + 1}: Error response: ${msg}`);
             throw new Error(`Job failed: ${msg}`);
         }
         
-        if (doc.response?.result?.entry) return text;
+        const entries = Array.isArray(doc.response?.result?.entry) 
+            ? doc.response.result.entry 
+            : doc.response?.result?.entry 
+                ? [doc.response.result.entry] 
+                : [];
+        
+        if (entries.length > 0) {
+            console.log(`[Polling] Attempt ${attempts + 1}: Found ${entries.length} entries, returning results`);
+            return text;
+        }
 
-        const jobStatus = doc.response?.result?.job?.status?.['#text'];
-        if (jobStatus === 'COMPLETE' || jobStatus === 'FIN') return text;
+        const jobStatus = doc.response?.result?.job?.status?.['#text'] || 
+                         doc.response?.result?.job?.status;
+        
+        if (jobStatus === 'COMPLETE' || jobStatus === 'FIN') {
+            console.log(`[Polling] Attempt ${attempts + 1}: Job status ${jobStatus}, returning results`);
+            return text;
+        }
+        
+        if (attempts % 5 === 0 || attempts === 0) {
+            const resultPreview = JSON.stringify(doc.response?.result || {}).substring(0, 300);
+            console.log(`[Polling] Attempt ${attempts + 1}/${maxAttempts}: Job status: ${jobStatus || 'PENDING'}, result preview: ${resultPreview}`);
+        }
 
         await delay(1000);
         attempts++;
     }
+    
+    console.log(`[Polling] Timeout after ${maxAttempts} attempts`);
     throw new Error("Timeout waiting for Panorama log query.");
 };
 
