@@ -9,7 +9,8 @@
     "server": "tsx watch server/index.ts",
     "server:prod": "tsx server/index.ts",
     "dev:full": "concurrently \"npm run server\" \"npm run dev\"",
-    "populate:history": "tsx server/populateHistory.ts"
+    "populate:history": "tsx server/populateHistory.ts",
+    "check:db": "tsx server/checkDb.ts"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",

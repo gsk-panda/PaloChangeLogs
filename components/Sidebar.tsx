@@ -10,13 +10,23 @@ const Sidebar: React.FC = () => {
   useEffect(() => {
     const fetchDbCount = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/changelogs/count`);
+        const url = `${API_BASE}/api/changelogs/count`;
+        console.log('[Sidebar] Fetching database count from:', url);
+        const response = await fetch(url);
+        console.log('[Sidebar] Response status:', response.status, response.statusText);
         if (response.ok) {
           const data = await response.json();
+          console.log('[Sidebar] Database count:', data.count);
           setDbCount(data.count);
+        } else {
+          const errorText = await response.text();
+          console.error('[Sidebar] Failed to fetch count:', response.status, errorText);
         }
       } catch (error) {
-        console.error('Error fetching database count:', error);
+        console.error('[Sidebar] Error fetching database count:', error);
+        if (error instanceof Error) {
+          console.error('[Sidebar] Error details:', error.message, error.stack);
+        }
       } finally {
         setLoadingCount(false);
       }

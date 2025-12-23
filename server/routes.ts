@@ -43,10 +43,12 @@ router.get('/api/changelogs/check/:date', (req, res) => {
 
 router.get('/api/changelogs/count', (req, res) => {
   try {
+    console.log('[API] /api/changelogs/count requested');
     const count = getTotalEntryCount();
+    console.log('[API] Total entry count:', count);
     res.json({ count });
   } catch (error: any) {
-    console.error('Error getting total count from database:', error);
+    console.error('[API] Error getting total count from database:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
