@@ -8,7 +8,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "server": "tsx watch server/index.ts",
     "server:prod": "tsx server/index.ts",
-    "dev:full": "concurrently \"npm run server\" \"npm run dev\""
+    "dev:full": "concurrently \"npm run server\" \"npm run dev\"",
+    "populate:history": "tsx server/populateHistory.ts"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
