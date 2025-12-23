@@ -5,6 +5,8 @@ import { getTodayMST, addDaysToDateString } from '../utils/dateUtils';
 const DAYS_TO_FETCH = parseInt(process.env.DAYS_TO_FETCH || '30', 10);
 const SKIP_EXISTING = process.env.SKIP_EXISTING !== 'false';
 const DELAY_BETWEEN_REQUESTS = parseInt(process.env.DELAY_MS || '1000', 10);
+const START_DATE = process.env.START_DATE;
+const END_DATE = process.env.END_DATE;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -57,7 +59,22 @@ const main = async () => {
   console.log('='.repeat(60));
   console.log('');
 
-  const today = getTodayMST();
+  let startDate: string;
+  let endDate: string;
+  
+  if (START_DATE && END_DATE) {
+    startDate = START_DATE;
+    endDate = END_DATE;
+    console.log(`Using custom date range: ${startDate} to ${endDate}`);
+  } else {
+    const today = getTodayMST();
+    endDate = addDaysToDateString(today, -1);
+    startDate = addDaysToDateString(endDate, -(DAYS_TO_FETCH - 1));
+    console.log(`Today's date (MST): ${today}`);
+    console.log(`Will fetch dates from ${startDate} to ${endDate} (${DAYS_TO_FETCH} days)`);
+  }
+  console.log('');
+  
   const stats = {
     total: 0,
     successful: 0,
@@ -68,8 +85,12 @@ const main = async () => {
 
   const errors: Array<{ date: string; error: string }> = [];
 
-  for (let i = 1; i <= DAYS_TO_FETCH; i++) {
-    const targetDate = addDaysToDateString(today, -i);
+  const startDateObj = new Date(startDate + 'T00:00:00');
+  const endDateObj = new Date(endDate + 'T00:00:00');
+  const totalDays = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  
+  for (let i = 0; i < totalDays; i++) {
+    const targetDate = addDaysToDateString(startDate, i);
     stats.total++;
 
     const result = await fetchAndSaveDate(targetDate);
@@ -88,12 +109,12 @@ const main = async () => {
       }
     }
 
-    if (i < DAYS_TO_FETCH && DELAY_BETWEEN_REQUESTS > 0) {
+    if (i < totalDays - 1 && DELAY_BETWEEN_REQUESTS > 0) {
       await delay(DELAY_BETWEEN_REQUESTS);
     }
 
-    if (i % 10 === 0) {
-      console.log(`\nProgress: ${i}/${DAYS_TO_FETCH} dates processed\n`);
+    if ((i + 1) % 10 === 0) {
+      console.log(`\nProgress: ${i + 1}/${totalDays} dates processed\n`);
     }
   }
 

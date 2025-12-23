@@ -69,6 +69,10 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
              throw new Error("Received HTML instead of XML. Check proxy settings.");
         }
 
+        if (text.length < 200) {
+            console.log(`[Panorama API] Response preview (first 500 chars): ${text.substring(0, 500)}`);
+        }
+
         const doc = parser.parse(text);
         
         const respStatus = doc.response?.['@_status'];
@@ -84,8 +88,16 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
         
         if (isJobIdOnly) {
              const jobId = typeof jobNode === 'string' ? jobNode : jobNode?.['#text'];
+             console.log(`[Panorama API] Job ID returned, polling for results: ${jobId}`);
              if (jobId) return await pollForJobResults(jobId);
         }
+        
+        const entryCount = Array.isArray(doc.response?.result?.entry) 
+            ? doc.response.result.entry.length 
+            : doc.response?.result?.entry 
+                ? 1 
+                : 0;
+        console.log(`[Panorama API] Direct response with ${entryCount} entries`);
         
         return text;
     } catch (error) {
@@ -114,6 +126,11 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
     : doc.response?.result?.entry 
       ? [doc.response.result.entry] 
       : [];
+  
+  console.log(`[Panorama Parse] Found ${entries.length} entries in XML response`);
+  if (entries.length === 0 && doc.response?.result) {
+    console.log(`[Panorama Parse] Result structure:`, JSON.stringify(doc.response.result, null, 2).substring(0, 500));
+  }
   
   const records: ChangeRecord[] = [];
 
