@@ -93,7 +93,18 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 echo ""
 echo "Step 8: Installing npm dependencies..."
 cd "$INSTALL_DIR"
-npm install
+if [ -d "node_modules" ] && [ -f "package.json" ]; then
+    echo "node_modules directory exists. Checking if dependencies need updating..."
+    if [ "package.json" -nt "node_modules" ] || [ ! -f "package-lock.json" ]; then
+        echo "package.json is newer than node_modules or package-lock.json missing. Installing dependencies..."
+        npm install
+    else
+        echo "Dependencies appear to be up to date. Skipping npm install."
+    fi
+else
+    echo "node_modules not found. Installing dependencies..."
+    npm install
+fi
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
 echo ""
@@ -243,8 +254,18 @@ git fetch origin
 git checkout feature/database-storage
 git pull origin feature/database-storage
 
-echo "Installing dependencies..."
-npm install
+echo "Checking if dependencies need updating..."
+if [ -d "node_modules" ] && [ -f "package.json" ]; then
+    if [ "package.json" -nt "node_modules" ] || [ ! -f "package-lock.json" ]; then
+        echo "package.json is newer than node_modules or package-lock.json missing. Installing dependencies..."
+        npm install
+    else
+        echo "Dependencies appear to be up to date. Skipping npm install."
+    fi
+else
+    echo "node_modules not found. Installing dependencies..."
+    npm install
+fi
 
 echo "Building application..."
 export NODE_OPTIONS="--openssl-legacy-provider"
