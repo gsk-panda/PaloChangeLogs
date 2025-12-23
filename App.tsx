@@ -131,15 +131,18 @@ const App: React.FC = () => {
   const displayDateLabel = (() => {
     try {
       const [year, month, day] = selectedDate.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
+      const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
       return new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Denver',
         month: 'long',
         day: 'numeric',
         year: 'numeric'
       }).format(date);
     } catch (e) {
       console.warn('Error formatting display date:', e);
-      return selectedDate;
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      return `${monthNames[month - 1]} ${day}, ${year}`;
     }
   })();
 
