@@ -105,7 +105,12 @@ const App: React.FC = () => {
         
         if (dbStart <= dbEnd) {
           try {
+            console.log(`[App] Fetching from database: ${dbStart} to ${dbEnd}`);
             const dbLogs = await fetchChangeLogsFromDatabase(dbStart, dbEnd);
+            console.log(`[App] Received ${dbLogs.length} logs from database`);
+            if (dbLogs.length > 0) {
+              console.log(`[App] Sample log from DB:`, { timestamp: dbLogs[0].timestamp, description: dbLogs[0].description?.substring(0, 50) });
+            }
             fetchedLogs.push(...dbLogs);
           } catch (dbError) {
             console.warn('Failed to fetch from database, continuing with Panorama data only:', dbError);
@@ -113,15 +118,9 @@ const App: React.FC = () => {
         }
       }
       
-      const filteredLogs = fetchedLogs.filter(log => {
-        const hasDescription = log.description && log.description.trim().length > 0;
-        return hasDescription;
-      });
-      
-      const dailyStats = calculateDailyStatsInRange(filteredLogs, endDateStr);
-      const admins = calculateAdminStats(filteredLogs);
-      
       setAllLogs(fetchedLogs);
+      const dailyStats = calculateDailyStatsInRange(fetchedLogs, endDateStr);
+      const admins = calculateAdminStats(fetchedLogs);
       setStats(dailyStats);
       setAdminStats(admins);
     } catch (err: any) {
@@ -144,11 +143,6 @@ const App: React.FC = () => {
     }
   }, [selectedDate, isSearchMode]);
 
-  const filteredLogs = allLogs.filter(log => {
-    const hasDescription = log.description && log.description.trim().length > 0;
-    return hasDescription;
-  });
-
   const normalizedSelectedDate = (() => {
     try {
       const [year, month, day] = selectedDate.split('-').map(Number);
@@ -162,7 +156,7 @@ const App: React.FC = () => {
   })();
 
   const tableLogs = (() => {
-    let logs = filteredLogs;
+    let logs = allLogs;
     
     if (isSearchMode && activeSearchTerm) {
       const searchLower = activeSearchTerm.toLowerCase();
@@ -175,15 +169,19 @@ const App: React.FC = () => {
       logs = logs.filter(log => {
         const logDateStr = extractDateFromTimestamp(log.timestamp);
         const matchesDate = logDateStr === normalizedSelectedDate;
+        if (!matchesDate && logs.length > 0 && logs.indexOf(log) < 3) {
+          console.log(`[Date Filter] Log timestamp: ${log.timestamp}, extracted date: ${logDateStr}, selected date: ${normalizedSelectedDate}, match: ${matchesDate}`);
+        }
         return matchesDate;
       });
+      console.log(`[Date Filter] Filtered ${allLogs.length} logs to ${logs.length} for date ${normalizedSelectedDate}`);
     }
     
     return logs;
   })();
   
   const changeCount = tableLogs.length;
-  const totalWindowChanges = filteredLogs.length;
+  const totalWindowChanges = allLogs.length;
   
   const selectedDateObj = (() => {
     try {
