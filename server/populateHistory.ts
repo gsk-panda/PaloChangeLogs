@@ -17,22 +17,32 @@ const fetchAndSaveDate = async (date: string): Promise<{ success: boolean; count
 
     console.log(`[${date}] Fetching from Panorama...`);
     const logs = await fetchChangeLogsRange(date, date);
+    console.log(`[${date}] Received ${logs.length} total logs from Panorama`);
     
     const filteredLogs = logs.filter(log => 
       log.description && log.description.trim().length > 0
     );
+    
+    console.log(`[${date}] After filtering (with descriptions): ${filteredLogs.length} logs`);
     
     if (filteredLogs.length > 0) {
       saveChangeLogs(filteredLogs, date);
       console.log(`[${date}] ✓ Saved ${filteredLogs.length} change logs`);
       return { success: true, count: filteredLogs.length };
     } else {
-      console.log(`[${date}] No logs with descriptions found`);
+      if (logs.length > 0) {
+        console.log(`[${date}] ⚠ Found ${logs.length} logs but none had descriptions (all filtered out)`);
+      } else {
+        console.log(`[${date}] No logs found for this date`);
+      }
       return { success: true, count: 0 };
     }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error(`[${date}] ✗ Error: ${errorMsg}`);
+    if (error instanceof Error && error.stack) {
+      console.error(`[${date}] Stack trace:`, error.stack);
+    }
     return { success: false, count: 0, error: errorMsg };
   }
 };

@@ -51,9 +51,11 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
     const url = `${PANORAMA_HOST}/api/?${queryParams}&key=${encodeURIComponent(PANORAMA_API_KEY)}&_t=${Date.now()}`;
 
     try {
+        console.log(`[Panorama API] Requesting: ${PANORAMA_HOST}/api/?${queryParams.substring(0, 100)}...`);
         const response = await fetch(url, {
             headers: { 'Accept': 'application/xml' }
         });
+        console.log(`[Panorama API] Response status: ${response.status} ${response.statusText}`);
         
         if (!response.ok) {
              if (response.status === 404) throw new Error(`Endpoint not found (404).`);
@@ -174,7 +176,13 @@ export const fetchChangeLogsRange = async (startDate: string, endDate: string): 
     const query = `(receive_time geq '${start} 00:00:00') and (receive_time leq '${end} 23:59:59')`;
     params += `&query=${encodeURIComponent(query)}`;
     
+    console.log(`[Panorama Query] Date range: ${startDate} to ${endDate}`);
+    console.log(`[Panorama Query] Formatted: ${start} to ${end}`);
+    console.log(`[Panorama Query] Query string: ${query}`);
+    
     const xml = await executePanoramaQuery(params);
+    console.log(`[Panorama Query] Response length: ${xml.length} characters`);
+    
     return parsePanoramaXML(xml);
 }
 
