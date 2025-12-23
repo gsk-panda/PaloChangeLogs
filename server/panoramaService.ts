@@ -84,12 +84,30 @@ const executePanoramaQuery = async (queryParams: string): Promise<string> => {
         }
         
         const jobNode = doc.response?.result?.job;
-        const isJobIdOnly = jobNode && !jobNode.status;
+        console.log(`[Panorama API] Job node type: ${typeof jobNode}, value:`, jobNode);
+        
+        const hasJobId = jobNode !== undefined && jobNode !== null;
+        const hasStatus = jobNode && typeof jobNode === 'object' && 'status' in jobNode;
+        const isJobIdOnly = hasJobId && !hasStatus;
+        
+        console.log(`[Panorama API] hasJobId: ${hasJobId}, hasStatus: ${hasStatus}, isJobIdOnly: ${isJobIdOnly}`);
         
         if (isJobIdOnly) {
-             const jobId = typeof jobNode === 'string' ? jobNode : jobNode?.['#text'];
-             console.log(`[Panorama API] Job ID returned, polling for results: ${jobId}`);
-             if (jobId) return await pollForJobResults(jobId);
+             let jobId: string | undefined;
+             if (typeof jobNode === 'string' || typeof jobNode === 'number') {
+                 jobId = String(jobNode);
+                 console.log(`[Panorama API] Extracted job ID from string/number: ${jobId}`);
+             } else if (jobNode && typeof jobNode === 'object') {
+                 jobId = jobNode['#text'] || String(jobNode);
+                 console.log(`[Panorama API] Extracted job ID from object: ${jobId}`);
+             }
+             
+             if (jobId) {
+                 console.log(`[Panorama API] Job ID returned, polling for results: ${jobId}`);
+                 return await pollForJobResults(jobId);
+             } else {
+                 console.log(`[Panorama API] Job node found but couldn't extract ID. Type: ${typeof jobNode}, Value:`, jobNode);
+             }
         }
         
         const entryCount = Array.isArray(doc.response?.result?.entry) 
