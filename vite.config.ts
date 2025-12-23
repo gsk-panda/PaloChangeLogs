@@ -8,21 +8,6 @@ export default defineConfig({
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
   },
   server: {
-    proxy: {
-      '/panorama-proxy': {
-        target: 'https://panorama.officeours.com',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/panorama-proxy/, ''),
-        followRedirects: true,
-      },
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      }
-    }
-  },
-  server: {
     host: '0.0.0.0',
     proxy: {
       '/panorama-proxy': {
