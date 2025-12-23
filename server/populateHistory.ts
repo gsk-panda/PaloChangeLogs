@@ -18,25 +18,31 @@ const fetchAndSaveDate = async (date: string): Promise<{ success: boolean; count
     }
 
     console.log(`[${date}] Fetching from Panorama...`);
-    const logs = await fetchChangeLogsRange(date, date);
+    let logs: any[];
+    try {
+      logs = await fetchChangeLogsRange(date, date);
+    } catch (fetchError) {
+      const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      if (errorMsg.includes('Timeout')) {
+        console.error(`[${date}] ✗ Polling timeout - job may still be processing`);
+        throw new Error(`Polling timeout: ${errorMsg}`);
+      }
+      throw fetchError;
+    }
+    
     console.log(`[${date}] Received ${logs.length} total logs from Panorama`);
     
-    const filteredLogs = logs.filter(log => 
-      log.description && log.description.trim().length > 0
-    );
+    if (logs.length === 0) {
+      console.log(`[${date}] ⚠ No logs returned from Panorama for this date`);
+      return { success: true, count: 0 };
+    }
     
-    console.log(`[${date}] After filtering (with descriptions): ${filteredLogs.length} logs`);
-    
-    if (filteredLogs.length > 0) {
-      saveChangeLogs(filteredLogs, date);
-      console.log(`[${date}] ✓ Saved ${filteredLogs.length} change logs`);
-      return { success: true, count: filteredLogs.length };
+    if (logs.length > 0) {
+      saveChangeLogs(logs, date);
+      console.log(`[${date}] ✓ Saved ${logs.length} change logs`);
+      return { success: true, count: logs.length };
     } else {
-      if (logs.length > 0) {
-        console.log(`[${date}] ⚠ Found ${logs.length} logs but none had descriptions (all filtered out)`);
-      } else {
-        console.log(`[${date}] No logs found for this date`);
-      }
+      console.log(`[${date}] No logs found for this date`);
       return { success: true, count: 0 };
     }
   } catch (error) {
@@ -72,6 +78,8 @@ const main = async () => {
     startDate = addDaysToDateString(endDate, -(DAYS_TO_FETCH - 1));
     console.log(`Today's date (MST): ${today}`);
     console.log(`Will fetch dates from ${startDate} to ${endDate} (${DAYS_TO_FETCH} days)`);
+    console.log(`\n⚠ NOTE: If no logs are found, try specifying dates manually:`);
+    console.log(`   START_DATE=2024-12-01 END_DATE=2024-12-31 npm run populate:history`);
   }
   console.log('');
   

@@ -58,12 +58,15 @@ const pollForJobResults = async (jobId: string): Promise<string> => {
         
         if (jobStatus === 'COMPLETE' || jobStatus === 'FIN') {
             console.log(`[Polling] Attempt ${attempts + 1}: Job status ${jobStatus}, returning results`);
+            if (entries.length === 0) {
+                console.log(`[Polling] ⚠ Job completed but no entries found. Response preview: ${text.substring(0, 500)}`);
+            }
             return text;
         }
         
         if (attempts % 5 === 0 || attempts === 0) {
             const resultPreview = JSON.stringify(doc.response?.result || {}).substring(0, 300);
-            console.log(`[Polling] Attempt ${attempts + 1}/${maxAttempts}: Job status: ${jobStatus || 'PENDING'}, result preview: ${resultPreview}`);
+            console.log(`[Polling] Attempt ${attempts + 1}/${maxAttempts}: Job status: ${jobStatus || 'PENDING'}, entries: ${entries.length}, result preview: ${resultPreview}`);
         }
 
         await delay(1000);
@@ -166,34 +169,43 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
     throw new Error(`Panorama API returned error: ${msg}`);
   }
 
-  const entries = Array.isArray(doc.response?.result?.entry) 
-    ? doc.response.result.entry 
-    : doc.response?.result?.entry 
-      ? [doc.response.result.entry] 
-      : [];
+  let entries: any[] = [];
+  
+  if (doc.response?.result?.log?.logs?.entry) {
+    entries = Array.isArray(doc.response.result.log.logs.entry)
+      ? doc.response.result.log.logs.entry
+      : [doc.response.result.log.logs.entry];
+  } else if (doc.response?.result?.entry) {
+    entries = Array.isArray(doc.response.result.entry)
+      ? doc.response.result.entry
+      : [doc.response.result.entry];
+  }
   
   console.log(`[Panorama Parse] Found ${entries.length} entries in XML response`);
   if (entries.length === 0 && doc.response?.result) {
-    console.log(`[Panorama Parse] Result structure:`, JSON.stringify(doc.response.result, null, 2).substring(0, 500));
+    console.log(`[Panorama Parse] Result structure:`, JSON.stringify(doc.response.result, null, 2).substring(0, 1000));
   }
   
   const records: ChangeRecord[] = [];
 
   entries.forEach((entry: any, index: number) => {
     try {
-      const cmd = entry.cmd?.['#text'] || entry.cmd || "unknown";
       const seqno = entry.seqno?.['#text'] || entry.seqno || "";
       const timeStr = entry.receive_time?.['#text'] || entry.receive_time || new Date().toISOString();
-      const admin = entry.admin?.['#text'] || entry.admin || "system";
-      const path = entry.path?.['#text'] || entry.path || "";
+      
+      const cmd = entry.cmd?.['#text'] || entry.cmd || entry.action?.['#text'] || entry.action || "unknown";
+      const admin = entry.admin?.['#text'] || entry.admin || entry.user?.['#text'] || entry.user || "system";
+      const path = entry.path?.['#text'] || entry.path || entry.config_path?.['#text'] || entry.config_path || "";
       
       let type: ChangeType = ChangeType.SYSTEM;
       if (path.includes("policy")) type = ChangeType.SECURITY_POLICY;
       else if (path.includes("address") || path.includes("object")) type = ChangeType.OBJECT;
       else if (path.includes("network") || path.includes("interface")) type = ChangeType.NETWORK;
 
-      const beforePreview = entry['before-change-detail']?.['#text'] || entry['before-change-detail'] || "";
-      const afterPreview = entry['after-change-detail']?.['#text'] || entry['after-change-detail'] || "";
+      const beforePreview = entry['before-change-detail']?.['#text'] || entry['before-change-detail'] || entry.before?.['#text'] || entry.before || "";
+      const afterPreview = entry['after-change-detail']?.['#text'] || entry['after-change-detail'] || entry.after?.['#text'] || entry.after || "";
+
+      const description = path || `Config change (seqno: ${seqno})`;
 
       records.push({
         id: `log-${seqno || index}-${Date.now()}`,
@@ -203,13 +215,14 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
         deviceGroup: 'Global',
         type: type,
         action: cmd === 'add' ? ActionType.ADD : cmd === 'delete' ? ActionType.DELETE : ActionType.EDIT,
-        description: path,
+        description: description,
         status: CommitStatus.SUCCESS,
         diffBefore: beforePreview || 'No previous configuration state.',
         diffAfter: afterPreview || 'No new configuration state.',
       });
     } catch (e) {
       console.warn("Failed to parse log entry", e);
+      console.warn("Entry data:", JSON.stringify(entry, null, 2).substring(0, 500));
     }
   });
 
