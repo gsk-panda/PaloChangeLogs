@@ -9,6 +9,11 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
+    allowedHosts: [
+      'panovision.officeours.com',
+      'localhost',
+      '.officeours.com'
+    ],
     proxy: {
       '/panorama-proxy': {
         target: 'https://panorama.officeours.com',
