@@ -29,8 +29,9 @@ const App: React.FC = () => {
   });
 
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [activeSearchTerm, setActiveSearchTerm] = useState<string>('');
   const [timeRange, setTimeRange] = useState<string>('30days');
-  const [isSearchMode, setIsSearchMode] = useState<boolean>(true);
+  const [isSearchMode, setIsSearchMode] = useState<boolean>(false);
 
   const getDateRangeForTimeRange = (range: string): { startDate: string; endDate: string } => {
     const today = getTodayMST();
@@ -132,12 +133,10 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isSearchMode) {
+    if (isSearchMode && activeSearchTerm) {
       loadData(timeRange);
-    } else {
-      loadData(selectedDate);
     }
-  }, [timeRange, isSearchMode]);
+  }, [timeRange]);
 
   useEffect(() => {
     if (!isSearchMode) {
@@ -165,15 +164,13 @@ const App: React.FC = () => {
   const tableLogs = (() => {
     let logs = filteredLogs;
     
-    if (isSearchMode) {
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        logs = logs.filter(log => {
-          const matchesDescription = log.description?.toLowerCase().includes(searchLower) || false;
-          const matchesAdmin = log.admin?.toLowerCase().includes(searchLower) || false;
-          return matchesDescription || matchesAdmin;
-        });
-      }
+    if (isSearchMode && activeSearchTerm) {
+      const searchLower = activeSearchTerm.toLowerCase();
+      logs = logs.filter(log => {
+        const matchesDescription = log.description?.toLowerCase().includes(searchLower) || false;
+        const matchesAdmin = log.admin?.toLowerCase().includes(searchLower) || false;
+        return matchesDescription || matchesAdmin;
+      });
     } else {
       logs = logs.filter(log => {
         const logDateStr = extractDateFromTimestamp(log.timestamp);
@@ -224,6 +221,7 @@ const App: React.FC = () => {
         setSelectedDate(normalizedDate);
         setIsSearchMode(false);
         setSearchTerm('');
+        setActiveSearchTerm('');
       } else {
         setSelectedDate(date);
       }
@@ -233,13 +231,61 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSearch = () => {
+    if (searchTerm.trim()) {
+      setActiveSearchTerm(searchTerm.trim());
+      setIsSearchMode(true);
+      loadData(timeRange);
+    } else {
+      setIsSearchMode(false);
+      setActiveSearchTerm('');
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-950 font-sans text-slate-200">
       <Sidebar />
       
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Top Header */}
-        <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 h-16 flex items-center justify-end px-8 sticky top-0 z-10">
+        <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 h-16 flex items-center justify-between px-8 sticky top-0 z-10">
+          <div className="flex items-center gap-4 flex-1 max-w-2xl">
+            <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/50 transition-all flex-1">
+              <Search size={18} className="text-slate-500 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Search by rule name, admin, or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch();
+                  }
+                }}
+                className="flex-1 bg-transparent border-none outline-none text-slate-300 placeholder-slate-500 text-sm"
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+                className="appearance-none bg-slate-800 border border-slate-700 px-4 py-2 pr-10 rounded-lg text-slate-300 text-sm font-medium cursor-pointer hover:border-orange-500/50 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 transition-all"
+              >
+                <option value="7days">Last 7 Days</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="3months">Last 3 Months</option>
+                <option value="6months">Last 6 Months</option>
+                <option value="1year">Last Year</option>
+              </select>
+              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+            </div>
+            <button
+              onClick={handleSearch}
+              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+            >
+              Search
+            </button>
+          </div>
           <div className="flex items-center gap-6">
             <button className="text-slate-500 hover:text-slate-300 relative transition-colors">
               <Bell size={20} />
@@ -309,7 +355,10 @@ const App: React.FC = () => {
             {/* Stats Cards Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard 
-                title={`Changes on ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' }).format(selectedDateObj)}`}
+                title={isSearchMode 
+                  ? `Search Results (${timeRange === '7days' ? 'Last 7 Days' : timeRange === '30days' ? 'Last 30 Days' : timeRange === '3months' ? 'Last 3 Months' : timeRange === '6months' ? 'Last 6 Months' : 'Last Year'})`
+                  : `Changes on ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' }).format(selectedDateObj)}`
+                }
                 value={changeCount.toString()} 
                 trend={changeCount > 0 ? "Changes Detected" : "No Activity"} 
                 trendUp={changeCount > 0} 
@@ -404,50 +453,14 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Search and Filter Section */}
-            <div className="bg-slate-900 p-6 rounded-xl shadow-lg shadow-black/20 border border-slate-800">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 flex items-center gap-2 bg-slate-800 border border-slate-700 px-4 py-2.5 rounded-lg focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/50 transition-all">
-                  <Search size={18} className="text-slate-500 flex-shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Search by rule name, admin, or description..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setIsSearchMode(true);
-                    }}
-                    className="flex-1 bg-transparent border-none outline-none text-slate-300 placeholder-slate-500 text-sm"
-                  />
-                </div>
-                <div className="relative">
-                  <select
-                    value={timeRange}
-                    onChange={(e) => {
-                      setTimeRange(e.target.value);
-                      setIsSearchMode(true);
-                    }}
-                    className="appearance-none bg-slate-800 border border-slate-700 px-4 py-2.5 pr-10 rounded-lg text-slate-300 text-sm font-medium cursor-pointer hover:border-orange-500/50 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 transition-all"
-                  >
-                    <option value="7days">Last 7 Days</option>
-                    <option value="30days">Last 30 Days</option>
-                    <option value="3months">Last 3 Months</option>
-                    <option value="6months">Last 6 Months</option>
-                    <option value="1year">Last Year</option>
-                  </select>
-                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                </div>
-              </div>
-            </div>
-
             {/* Log Table for Selected Day */}
             <div className="space-y-4">
                <div className="flex items-center justify-between">
                    <div>
                      <h2 className="text-lg font-bold text-white">Change Log</h2>
                      <p className="text-slate-500 text-sm mt-0.5">
-                       {isSearchMode
-                         ? `Search results ${searchTerm ? `for "${searchTerm}"` : ''} (${timeRange === '7days' ? 'Last 7 Days' : timeRange === '30days' ? 'Last 30 Days' : timeRange === '3months' ? 'Last 3 Months' : timeRange === '6months' ? 'Last 6 Months' : 'Last Year'})`
+                       {isSearchMode && activeSearchTerm
+                         ? `Search results for "${activeSearchTerm}" (${timeRange === '7days' ? 'Last 7 Days' : timeRange === '30days' ? 'Last 30 Days' : timeRange === '3months' ? 'Last 3 Months' : timeRange === '6months' ? 'Last 6 Months' : 'Last Year'})`
                          : `Detailed records for ${displayDateLabel}`
                        }
                      </p>
