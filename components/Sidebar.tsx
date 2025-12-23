@@ -1,7 +1,32 @@
-import React from 'react';
-import { LayoutDashboard, Activity } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { LayoutDashboard, Activity, Database } from 'lucide-react';
+
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 const Sidebar: React.FC = () => {
+  const [dbCount, setDbCount] = useState<number | null>(null);
+  const [loadingCount, setLoadingCount] = useState(true);
+
+  useEffect(() => {
+    const fetchDbCount = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/changelogs/count`);
+        if (response.ok) {
+          const data = await response.json();
+          setDbCount(data.count);
+        }
+      } catch (error) {
+        console.error('Error fetching database count:', error);
+      } finally {
+        setLoadingCount(false);
+      }
+    };
+
+    fetchDbCount();
+    const interval = setInterval(fetchDbCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="w-20 md:w-64 bg-slate-950 text-slate-300 flex-shrink-0 flex flex-col h-screen sticky top-0 border-r border-slate-800 z-20">
       {/* Branding */}
@@ -25,12 +50,23 @@ const Sidebar: React.FC = () => {
       </nav>
 
       {/* Footer / Status */}
-      <div className="p-4 border-t border-slate-800 bg-slate-950 hidden md:block">
+      <div className="p-4 border-t border-slate-800 bg-slate-950 space-y-3 hidden md:block">
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse"></div>
           <div>
              <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Connected to</div>
              <div className="text-xs font-semibold text-slate-300 truncate max-w-[140px]" title="panorama.officeours.com">panorama.officeours.com</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 pt-2 border-t border-slate-800">
+          <div className="p-1.5 bg-slate-800 rounded border border-slate-700">
+            <Database size={14} className="text-slate-400" />
+          </div>
+          <div>
+             <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Database Entries</div>
+             <div className="text-xs font-semibold text-slate-300">
+               {loadingCount ? '...' : dbCount !== null ? dbCount.toLocaleString() : 'N/A'}
+             </div>
           </div>
         </div>
       </div>

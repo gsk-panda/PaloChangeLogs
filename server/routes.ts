@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getChangeLogsByDateRange, getChangeLogsByDate, hasDateData } from './db';
+import { getChangeLogsByDateRange, getChangeLogsByDate, hasDateData, getTotalEntryCount } from './db';
 
 const router = Router();
 
@@ -37,6 +37,16 @@ router.get('/api/changelogs/check/:date', (req, res) => {
     res.json({ exists });
   } catch (error: any) {
     console.error('Error checking date in database:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+router.get('/api/changelogs/count', (req, res) => {
+  try {
+    const count = getTotalEntryCount();
+    res.json({ count });
+  } catch (error: any) {
+    console.error('Error getting total count from database:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });

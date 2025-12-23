@@ -68,6 +68,10 @@ const checkDateExists = db.prepare(`
   SELECT COUNT(*) as count FROM change_logs WHERE log_date = ?
 `);
 
+const getTotalCount = db.prepare(`
+  SELECT COUNT(*) as count FROM change_logs
+`);
+
 export const saveChangeLogs = (logs: ChangeRecord[], date: string) => {
   const insertMany = db.transaction((logs: ChangeRecord[], date: string) => {
     for (const log of logs) {
@@ -128,6 +132,11 @@ export const getChangeLogsByDate = (date: string): ChangeRecord[] => {
 export const hasDateData = (date: string): boolean => {
   const result = checkDateExists.get(date) as { count: number };
   return result.count > 0;
+};
+
+export const getTotalEntryCount = (): number => {
+  const result = getTotalCount.get() as { count: number };
+  return result.count;
 };
 
 export const closeDb = () => db.close();

@@ -2,7 +2,7 @@ import { fetchChangeLogsRange } from './panoramaService';
 import { saveChangeLogs, hasDateData, closeDb } from './db';
 import { getTodayMST, addDaysToDateString } from '../utils/dateUtils';
 
-const DAYS_TO_FETCH = parseInt(process.env.DAYS_TO_FETCH || '365', 10);
+const DAYS_TO_FETCH = parseInt(process.env.DAYS_TO_FETCH || '30', 10);
 const SKIP_EXISTING = process.env.SKIP_EXISTING !== 'false';
 const DELAY_BETWEEN_REQUESTS = parseInt(process.env.DELAY_MS || '1000', 10);
 
