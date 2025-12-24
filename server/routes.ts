@@ -22,10 +22,15 @@ router.get('/api/changelogs/range', (req, res) => {
 router.get('/api/changelogs/date/:date', (req, res) => {
   try {
     const { date } = req.params;
+    console.log(`[API] /api/changelogs/date/${date} requested`);
     const logs = getChangeLogsByDate(date);
+    console.log(`[API] Found ${logs.length} logs for date ${date}`);
     res.json(logs);
   } catch (error: any) {
     console.error('Error fetching logs from database:', error);
+    if (error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
@@ -59,10 +64,18 @@ router.get('/api/health', (req, res) => {
 
 router.get('/api/changelogs/dates', (req, res) => {
   try {
+    console.log('[API] /api/changelogs/dates requested');
     const dates = getDatesWithData();
+    console.log(`[API] Found ${dates.length} dates with data`);
+    if (dates.length > 0) {
+      console.log(`[API] Sample dates: ${dates.slice(0, 3).map(d => `${d.date} (${d.count})`).join(', ')}`);
+    }
     res.json({ dates });
   } catch (error: any) {
-    console.error('Error getting dates with data:', error);
+    console.error('[API] Error getting dates with data:', error);
+    if (error.stack) {
+      console.error('[API] Stack trace:', error.stack);
+    }
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });

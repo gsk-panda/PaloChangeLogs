@@ -1,6 +1,15 @@
 import { fetchChangeLogsRange } from './panoramaService';
-import { saveChangeLogs, hasDateData, closeDb } from './db';
+import { saveChangeLogs, hasDateData, closeDb, getTotalEntryCount } from './db';
 import { getTodayMST, addDaysToDateString } from '../utils/dateUtils';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { existsSync, chownSync, statSync } from 'fs';
+import { execSync } from 'child_process';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const dataDir = path.join(__dirname, '../data');
+const dbPath = path.join(dataDir, 'changelogs.db');
 
 const DAYS_TO_FETCH = parseInt(process.env.DAYS_TO_FETCH || '30', 10);
 const SKIP_EXISTING = process.env.SKIP_EXISTING !== 'false';
@@ -136,6 +145,44 @@ const main = async () => {
   console.log(`Skipped (already exists): ${stats.skipped}`);
   console.log(`Total logs saved: ${stats.totalLogs}`);
   console.log('='.repeat(60));
+  console.log(`Database path: ${dbPath}`);
+  console.log(`Database exists: ${existsSync(dbPath)}`);
+  
+  if (existsSync(dbPath)) {
+    try {
+      const stats = statSync(dbPath);
+      console.log(`Database owner: UID ${stats.uid}, GID ${stats.gid}`);
+      
+      const isRoot = process.getuid && process.getuid() === 0;
+      const serviceUser = process.env.SERVICE_USER || 'palo-changelogs';
+      
+      if (isRoot) {
+        console.log(`\n⚠ Running as root detected. Fixing database permissions...`);
+        try {
+          execSync(`chown -R ${serviceUser}:${serviceUser} "${dataDir}"`, { stdio: 'inherit' });
+          console.log(`✓ Changed ownership of ${dataDir} to ${serviceUser}:${serviceUser}`);
+        } catch (chownError) {
+          console.error(`✗ Failed to change ownership: ${chownError}`);
+          console.log(`\n⚠ Manual fix required:`);
+          console.log(`   sudo chown -R ${serviceUser}:${serviceUser} "${dataDir}"`);
+        }
+      }
+    } catch (statError) {
+      console.error(`Error checking database stats: ${statError}`);
+    }
+  }
+  
+  try {
+    const totalCount = getTotalEntryCount();
+    console.log(`Total entries in database: ${totalCount}`);
+  } catch (error) {
+    console.error('Error verifying database count:', error);
+    if (existsSync(dbPath)) {
+      console.log(`\n⚠ Database exists but cannot be read. Check permissions:`);
+      console.log(`   ls -la "${dbPath}"`);
+      console.log(`   sudo chown -R palo-changelogs:palo-changelogs "${dataDir}"`);
+    }
+  }
 
   if (errors.length > 0) {
     console.log('\nErrors encountered:');

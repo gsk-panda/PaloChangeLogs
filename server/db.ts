@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { ChangeRecord } from '../types';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { mkdirSync } from 'fs';
+import { mkdirSync, existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +11,8 @@ const dataDir = path.join(__dirname, '../data');
 mkdirSync(dataDir, { recursive: true });
 
 const dbPath = path.join(dataDir, 'changelogs.db');
+console.log(`[Database] Database path: ${dbPath}`);
+console.log(`[Database] Database exists: ${existsSync(dbPath)}`);
 const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');
@@ -142,16 +144,28 @@ export const hasDateData = (date: string): boolean => {
 };
 
 export const getTotalEntryCount = (): number => {
-  const result = getTotalCount.get() as { count: number };
-  return result.count;
+  try {
+    const result = getTotalCount.get() as { count: number };
+    console.log(`[Database] Total entry count query result: ${result.count}`);
+    return result.count;
+  } catch (error) {
+    console.error(`[Database] Error getting total count:`, error);
+    throw error;
+  }
 };
 
 export const getDatesWithData = (): Array<{ date: string; count: number }> => {
-  const rows = getDatesWithDataQuery.all() as any[];
-  return rows.map(row => ({
-    date: row.date,
-    count: row.count
-  }));
+  try {
+    const rows = getDatesWithDataQuery.all() as any[];
+    console.log(`[Database] getDatesWithData query returned ${rows.length} dates`);
+    return rows.map(row => ({
+      date: row.date,
+      count: row.count
+    }));
+  } catch (error) {
+    console.error(`[Database] Error getting dates with data:`, error);
+    throw error;
+  }
 };
 
 export const closeDb = () => db.close();
