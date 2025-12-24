@@ -133,6 +133,7 @@ if [ ! -f "$ENV_FILE" ]; then
     
     cat > "$ENV_FILE" << EOF
 VITE_API_BASE=$NGINX_LOCATION_PATH
+VITE_PANORAMA_PROXY=$NGINX_LOCATION_PATH/panorama-proxy
 PANORAMA_HOST=$PANORAMA_HOST
 PANORAMA_API_KEY=$PANORAMA_API_KEY
 API_KEY=${GEMINI_API_KEY:-your_gemini_api_key_here}
@@ -224,7 +225,35 @@ chmod 755 "$INSTALL_DIR/data"
 echo "Database directory created at $INSTALL_DIR/data"
 
 echo ""
-echo "Step 13: Creating systemd service for backend..."
+echo "Step 13: Checking for port conflicts..."
+if command -v lsof &> /dev/null; then
+    PORT_IN_USE=$(lsof -ti:$BACKEND_PORT 2>/dev/null || echo "")
+elif command -v ss &> /dev/null; then
+    PORT_IN_USE=$(ss -tlnp | grep ":$BACKEND_PORT " | awk '{print $6}' | head -1 || echo "")
+else
+    PORT_IN_USE=""
+fi
+
+if [ -n "$PORT_IN_USE" ]; then
+    echo "⚠ Port $BACKEND_PORT is already in use!"
+    echo "   This may cause the backend service to fail to start."
+    echo "   You can:"
+    echo "   1. Stop the process using port $BACKEND_PORT"
+    echo "   2. Change BACKEND_PORT environment variable and re-run install"
+    echo "   3. Run: sudo bash fix-port-conflict.sh $BACKEND_PORT"
+    echo ""
+    read -p "Continue anyway? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installation stopped. Please resolve port conflict first."
+        exit 1
+    fi
+else
+    echo "✓ Port $BACKEND_PORT is available"
+fi
+
+echo ""
+echo "Step 14: Creating systemd service for backend..."
 BACKEND_SERVICE_FILE="/etc/systemd/system/palo-changelogs-backend.service"
 cat > "$BACKEND_SERVICE_FILE" << EOF
 [Unit]
@@ -259,7 +288,41 @@ systemctl daemon-reload
 echo "Backend service file created at $BACKEND_SERVICE_FILE"
 
 echo ""
-echo "Step 14: Creating NGINX configuration file..."
+echo "Step 15: Setting up SSL certificates..."
+SSL_DIR="/etc/nginx/ssl"
+SSL_CERT="$SSL_DIR/certificate.crt"
+SSL_KEY="$SSL_DIR/private.key"
+
+mkdir -p "$SSL_DIR"
+
+if [ ! -f "$SSL_CERT" ] || [ ! -f "$SSL_KEY" ]; then
+    echo "SSL certificates not found. Creating self-signed certificate..."
+    echo "NOTE: This is for testing only. For production, use Let's Encrypt or a commercial certificate."
+    
+    # Generate self-signed certificate
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout "$SSL_KEY" \
+        -out "$SSL_CERT" \
+        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost" \
+        2>/dev/null
+    
+    if [ $? -eq 0 ] && [ -f "$SSL_CERT" ] && [ -f "$SSL_KEY" ]; then
+        chmod 600 "$SSL_KEY"
+        chmod 644 "$SSL_CERT"
+        echo "✓ Self-signed certificate created at $SSL_CERT"
+        echo "  WARNING: Browsers will show a security warning for self-signed certificates"
+    else
+        echo "⚠ Failed to create self-signed certificate"
+        echo "  You will need to create certificates manually or use Let's Encrypt"
+    fi
+else
+    echo "SSL certificates already exist at:"
+    echo "  Certificate: $SSL_CERT"
+    echo "  Private Key: $SSL_KEY"
+fi
+
+echo ""
+echo "Step 16: Creating NGINX configuration file..."
 
 # Create single comprehensive NGINX configuration file
 NGINX_CONF="/etc/nginx/conf.d/palo-changelogs.conf"
@@ -338,8 +401,29 @@ server {
     client_body_timeout 60s;
     client_header_timeout 60s;
     
+    # Panorama API proxy location
+    location $NGINX_LOCATION_PATH/panorama-proxy/ {
+        proxy_pass https://$PANORAMA_HOST/;
+        proxy_ssl_verify off;
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+        proxy_set_header Host $PANORAMA_HOST;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+        
+        # CORS headers
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range' always;
+    }
+    
     # Backend API location
-    location $NGINX_LOCATION_PATH/api {
+    location $NGINX_LOCATION_PATH/api/ {
+        # Rewrite to remove the location path prefix before proxying
+        rewrite ^$NGINX_LOCATION_PATH/api/(.*) /api/\$1 break;
         proxy_pass http://palo_changelogs_backend;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -377,17 +461,14 @@ server {
         add_header X-XSS-Protection "1; mode=block" always;
     }
     
-    # Health check endpoint
-    location $NGINX_LOCATION_PATH/api/health {
-        proxy_pass http://palo_changelogs_backend/api/health;
-        access_log off;
-    }
+    # Health check endpoint (handled by main API location above, but explicit for clarity)
+    # Note: This is redundant but kept for explicit health checks
 }
 NGINX_EOF
 
 echo "NGINX configuration file created at $NGINX_CONF"
 echo ""
-echo "Step 15: Configuring upstream in NGINX..."
+echo "Step 17: Configuring upstream in NGINX..."
 
 # Try to automatically add upstream to nginx.conf
 NGINX_MAIN_CONF="/etc/nginx/nginx.conf"
@@ -456,26 +537,39 @@ fi
 echo ""
 echo "2. Customize the server block in $NGINX_CONF:"
 echo "   - Change 'server_name _;' to your actual domain name (required for HTTPS)"
-echo "   - Update SSL certificate paths (ssl_certificate and ssl_certificate_key) - REQUIRED"
+if [ -f "$SSL_CERT" ] && [ -f "$SSL_KEY" ]; then
+    echo "   - SSL certificates are configured at:"
+    echo "     Certificate: $SSL_CERT"
+    echo "     Private Key: $SSL_KEY"
+else
+    echo "   - SSL certificates need to be created (see step 3)"
+fi
 echo "   - If using Let's Encrypt, uncomment OCSP stapling lines and set ssl_trusted_certificate"
 echo "   - Adjust logging paths if needed"
 echo ""
-echo "3. IMPORTANT - SSL Certificate Setup:"
-echo "   The application REQUIRES HTTPS. You must provide valid SSL certificates."
-echo "   Options:"
-echo "   a) Let's Encrypt (recommended):"
-echo "      sudo dnf install certbot python3-certbot-nginx"
-echo "      sudo certbot --nginx -d your-domain.com"
-echo ""
-echo "   b) Self-signed (testing only):"
-echo "      sudo mkdir -p /etc/nginx/ssl"
-echo "      sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \\"
-echo "          -keyout /etc/nginx/ssl/private.key \\"
-echo "          -out /etc/nginx/ssl/certificate.crt"
-echo ""
-echo "   c) Commercial certificate:"
-echo "      Place your certificate and key files in /etc/nginx/ssl/"
-echo "      Update paths in $NGINX_CONF"
+echo "3. SSL Certificate Status:"
+if [ -f "$SSL_CERT" ] && [ -f "$SSL_KEY" ]; then
+    echo "   ✓ SSL certificates found at:"
+    echo "     Certificate: $SSL_CERT"
+    echo "     Private Key: $SSL_KEY"
+    echo ""
+    echo "   For production, replace with a trusted certificate:"
+    echo "   a) Let's Encrypt (recommended):"
+    echo "      sudo dnf install certbot python3-certbot-nginx"
+    echo "      sudo certbot --nginx -d your-domain.com"
+    echo ""
+    echo "   b) Commercial certificate:"
+    echo "      Place your certificate and key files in $SSL_DIR/"
+    echo "      Update paths in $NGINX_CONF"
+else
+    echo "   ⚠ SSL certificates not found!"
+    echo "   Create certificates manually:"
+    echo "      sudo mkdir -p $SSL_DIR"
+    echo "      sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \\"
+    echo "          -keyout $SSL_KEY \\"
+    echo "          -out $SSL_CERT \\"
+    echo "          -subj \"/C=US/ST=State/L=City/O=Organization/CN=your-domain.com\""
+fi
 echo ""
 echo "4. Test and reload NGINX:"
 echo "   sudo nginx -t"
@@ -521,7 +615,7 @@ chown "$SERVICE_USER:$SERVICE_USER" "$EXAMPLE_SERVER_BLOCK"
 echo "Example server block created at $EXAMPLE_SERVER_BLOCK"
 
 echo ""
-echo "Step 16: Testing NGINX configuration..."
+echo "Step 18: Testing NGINX configuration..."
 if nginx -t 2>/dev/null; then
     echo "NGINX configuration test passed"
 else
@@ -542,7 +636,7 @@ else
 fi
 
 echo ""
-echo "Step 17: Configuring firewall (if firewall-cmd is available)..."
+echo "Step 19: Configuring firewall (if firewall-cmd is available)..."
 if command -v firewall-cmd &> /dev/null; then
     if firewall-cmd --state &>/dev/null; then
         firewall-cmd --permanent --add-service=http 2>/dev/null || true
@@ -557,7 +651,7 @@ else
 fi
 
 echo ""
-echo "Step 18: Enabling and starting backend service..."
+echo "Step 20: Enabling and starting backend service..."
 systemctl daemon-reload
 systemctl enable palo-changelogs-backend
 systemctl start palo-changelogs-backend
@@ -573,7 +667,7 @@ else
 fi
 
 echo ""
-echo "Step 19: Creating update script..."
+echo "Step 21: Creating update script..."
 UPDATE_SCRIPT="$INSTALL_DIR/update.sh"
 cat > "$UPDATE_SCRIPT" << 'UPDATE_EOF'
 #!/bin/bash

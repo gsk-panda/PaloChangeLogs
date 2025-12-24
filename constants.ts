@@ -1,5 +1,5 @@
 export const PANORAMA_CONFIG = {
-  HOST: '/panorama-proxy',
+  HOST: import.meta.env.VITE_PANORAMA_PROXY || '/panorama-proxy',
   API_KEY: 'LUFRPT1UcFFML3JPQ21CRVFLU2w2ZHc1dzU4aVRGN1E9dzczNHg3T0VsRS9yYmFMcEpWdXBWdHkzS2dEa1FqU3dPN0xoejZDMWVpQVVNZlZUeGFIZ0xVMm5vZEtCYVcxdA==',
 };
 

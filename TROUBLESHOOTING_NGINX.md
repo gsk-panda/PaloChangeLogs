@@ -56,6 +56,178 @@ sudo nginx -T | grep -A 3 "upstream palo_changelogs_backend"
 
 ---
 
+## Error: "cannot load certificate" or "BIO_new_file() failed"
+
+This error occurs when the SSL certificate files specified in the NGINX configuration don't exist.
+
+### Quick Fix
+
+Create a self-signed certificate:
+
+```bash
+sudo mkdir -p /etc/nginx/ssl
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/private.key \
+    -out /etc/nginx/ssl/certificate.crt \
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=your-domain.com"
+
+# Set proper permissions
+sudo chmod 600 /etc/nginx/ssl/private.key
+sudo chmod 644 /etc/nginx/ssl/certificate.crt
+
+# Test and reload
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Automated Fix Script
+
+Run the fix script:
+
+```bash
+sudo bash fix-nginx-ssl.sh your-domain.com
+```
+
+Or for localhost/testing:
+
+```bash
+sudo bash fix-nginx-ssl.sh
+```
+
+### For Production
+
+Use Let's Encrypt for trusted certificates:
+
+```bash
+sudo dnf install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+This will automatically configure NGINX with valid SSL certificates.
+
+---
+
+## Error: "EADDRINUSE: address already in use :::3001"
+
+This error occurs when port 3001 (or the configured backend port) is already in use by another process.
+
+### Quick Fix
+
+Find and stop the process using the port:
+
+```bash
+# Find what's using port 3001
+sudo lsof -i:3001
+# or
+sudo ss -tlnp | grep :3001
+
+# Stop the process (replace PID with actual process ID)
+sudo kill <PID>
+
+# Restart the backend service
+sudo systemctl restart palo-changelogs-backend
+```
+
+### Automated Fix Script
+
+Run the fix script:
+
+```bash
+sudo bash fix-port-conflict.sh
+```
+
+Or for a different port:
+
+```bash
+sudo bash fix-port-conflict.sh 3002
+```
+
+### Alternative: Change the Port
+
+If you need to use a different port:
+
+1. Edit `/opt/palo-changelogs/.env`:
+   ```
+   PORT=3002
+   ```
+
+2. Update NGINX upstream configuration in `/etc/nginx/nginx.conf`:
+   ```nginx
+   upstream palo_changelogs_backend {
+       server 127.0.0.1:3002;  # Changed from 3001
+       keepalive 32;
+   }
+   ```
+
+3. Restart services:
+   ```bash
+   sudo systemctl restart palo-changelogs-backend
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+---
+
+## Error: "Endpoint not found (404). Check if the Panorama API endpoint is correct."
+
+This error occurs when the Panorama API proxy is not configured in NGINX, or the frontend environment variable is not set correctly.
+
+### Quick Fix
+
+1. **Add Panorama proxy location to NGINX configuration:**
+
+Edit `/etc/nginx/conf.d/palo-changelogs.conf` and add this location block before the backend API location:
+
+```nginx
+# Panorama API proxy location
+location /changelogs/panorama-proxy/ {  # Adjust path if using different NGINX_LOCATION_PATH
+    proxy_pass https://panorama.officeours.com/;  # Your Panorama host
+    proxy_ssl_verify off;
+    proxy_ssl_server_name on;
+    proxy_http_version 1.1;
+    proxy_set_header Host panorama.officeours.com;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 300s;
+    proxy_connect_timeout 75s;
+    
+    # CORS headers
+    add_header 'Access-Control-Allow-Origin' '*' always;
+    add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+    add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range' always;
+}
+```
+
+2. **Update frontend environment file:**
+
+Edit `/opt/palo-changelogs/.env.local` and add:
+
+```
+VITE_PANORAMA_PROXY=/changelogs/panorama-proxy  # Adjust path to match your NGINX_LOCATION_PATH
+```
+
+3. **Rebuild frontend and reload NGINX:**
+
+```bash
+cd /opt/palo-changelogs
+sudo -u palo-changelogs npm run build
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Automated Fix Script
+
+Run the fix script:
+
+```bash
+sudo bash fix-panorama-proxy.sh
+```
+
+This will automatically add the Panorama proxy configuration to NGINX.
+
+---
+
 ## Error: "location directive is not allowed here"
 
 This error occurs when the `palo-changelogs-locations.conf` file is included at the wrong level in your NGINX configuration.
