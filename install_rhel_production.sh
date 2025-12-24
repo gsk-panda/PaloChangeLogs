@@ -259,106 +259,242 @@ systemctl daemon-reload
 echo "Backend service file created at $BACKEND_SERVICE_FILE"
 
 echo ""
-echo "Step 14: Creating NGINX configuration files..."
+echo "Step 14: Creating NGINX configuration file..."
 
-# Create upstream configuration (can be included at http level)
-NGINX_UPSTREAM_CONF="/etc/nginx/conf.d/palo-changelogs-upstream.conf"
-cat > "$NGINX_UPSTREAM_CONF" << UPSTREAM_EOF
-# Palo ChangeLogs Backend Upstream
-# Include this in the http block: include /etc/nginx/conf.d/palo-changelogs-upstream.conf;
+# Create single comprehensive NGINX configuration file
+NGINX_CONF="/etc/nginx/conf.d/palo-changelogs.conf"
+cat > "$NGINX_CONF" << NGINX_EOF
+# Palo ChangeLogs Complete NGINX Configuration
+# 
+# This file contains a complete server block configuration.
+# 
+# SETUP INSTRUCTIONS:
+# 1. Add the upstream block below to your http {} block in /etc/nginx/nginx.conf
+# 2. This server block will be automatically loaded if you have:
+#    include /etc/nginx/conf.d/*.conf; in your http block
+# 3. Customize the server_name and SSL certificate paths below
 
-upstream palo_changelogs_backend {
-    server 127.0.0.1:$BACKEND_PORT;
-    keepalive 32;
-}
-UPSTREAM_EOF
+# ============================================================================
+# STEP 1: Copy this upstream block to your http {} block in /etc/nginx/nginx.conf
+# ============================================================================
+# upstream palo_changelogs_backend {
+#     server 127.0.0.1:$BACKEND_PORT;
+#     keepalive 32;
+# }
 
-# Create location configuration (must be included in server block)
-NGINX_LOCATIONS_CONF="/etc/nginx/conf.d/palo-changelogs-locations.conf"
-cat > "$NGINX_LOCATIONS_CONF" << LOCATIONS_EOF
-# Palo ChangeLogs Application Locations
-# Include this file INSIDE your server block: include /etc/nginx/conf.d/palo-changelogs-locations.conf;
+# ============================================================================
+# SERVER BLOCK CONFIGURATION
+# This server block is automatically included from /etc/nginx/conf.d/
+# ============================================================================
 
-# Backend API location
-location $NGINX_LOCATION_PATH/api {
-    proxy_pass http://palo_changelogs_backend;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade \$http_upgrade;
-    proxy_set_header Connection 'upgrade';
-    proxy_set_header Host \$host;
-    proxy_set_header X-Real-IP \$remote_addr;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto \$scheme;
-    proxy_set_header X-Forwarded-Host \$host;
-    proxy_set_header X-Forwarded-Prefix $NGINX_LOCATION_PATH;
-    proxy_cache_bypass \$http_upgrade;
-    proxy_read_timeout 300s;
-    proxy_connect_timeout 75s;
+# HTTP Server - Redirect all HTTP traffic to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;  # TODO: Change to your domain name (e.g., example.com)
     
-    # CORS headers (if needed)
-    add_header 'Access-Control-Allow-Origin' '*' always;
-    add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-    add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range' always;
+    # Redirect all HTTP requests to HTTPS
+    return 301 https://\$server_name\$request_uri;
 }
 
-# Frontend static files
-location $NGINX_LOCATION_PATH {
-    alias $INSTALL_DIR/dist;
-    try_files \$uri \$uri/ $NGINX_LOCATION_PATH/index.html;
+# HTTPS Server - Main application server
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name _;  # TODO: Change to your domain name (e.g., example.com)
     
-    # Cache static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
+    # SSL Certificate Configuration - TODO: Update these paths to your certificate files
+    ssl_certificate /etc/nginx/ssl/certificate.crt;
+    ssl_certificate_key /etc/nginx/ssl/private.key;
     
-    # Security headers
+    # SSL Protocol Configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
+    ssl_prefer_server_ciphers off;
+    
+    # SSL Session Configuration
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+    
+    # SSL Security Headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    
+    # OCSP Stapling (uncomment if using Let's Encrypt or certificates with OCSP)
+    # ssl_stapling on;
+    # ssl_stapling_verify on;
+    # ssl_trusted_certificate /etc/nginx/ssl/chain.pem;
+    
+    # Logging
+    access_log /var/log/nginx/palo-changelogs-access.log;
+    error_log /var/log/nginx/palo-changelogs-error.log;
+    
+    # Client settings
+    client_max_body_size 10M;
+    client_body_timeout 60s;
+    client_header_timeout 60s;
+    
+    # Backend API location
+    location $NGINX_LOCATION_PATH/api {
+        proxy_pass http://palo_changelogs_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Host \$host;
+        proxy_set_header X-Forwarded-Prefix $NGINX_LOCATION_PATH;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+        
+        # CORS headers (if needed)
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range' always;
+    }
+    
+    # Frontend static files
+    location $NGINX_LOCATION_PATH {
+        alias $INSTALL_DIR/dist;
+        try_files \$uri \$uri/ $NGINX_LOCATION_PATH/index.html;
+        
+        # Cache static assets
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+        
+        # Additional security headers for static files
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+    }
+    
+    # Health check endpoint
+    location $NGINX_LOCATION_PATH/api/health {
+        proxy_pass http://palo_changelogs_backend/api/health;
+        access_log off;
+    }
 }
+NGINX_EOF
 
-# Health check endpoint
-location $NGINX_LOCATION_PATH/api/health {
-    proxy_pass http://palo_changelogs_backend/api/health;
-    access_log off;
-}
-LOCATIONS_EOF
-
-echo "NGINX configuration files created:"
-echo "  Upstream config: $NGINX_UPSTREAM_CONF"
-echo "  Locations config: $NGINX_LOCATIONS_CONF"
+echo "NGINX configuration file created at $NGINX_CONF"
 echo ""
-echo "To use these configurations:"
+echo "Setup Instructions:"
 echo ""
-echo "1. Add upstream to your http block in /etc/nginx/nginx.conf:"
+echo "1. Add the upstream block to your http {} block in /etc/nginx/nginx.conf:"
+echo "   Edit /etc/nginx/nginx.conf and add this inside the http {} block:"
+echo ""
 echo "   http {"
 echo "       # ... other directives ..."
-echo "       include /etc/nginx/conf.d/palo-changelogs-upstream.conf;"
+echo "       "
+echo "       upstream palo_changelogs_backend {"
+echo "           server 127.0.0.1:$BACKEND_PORT;"
+echo "           keepalive 32;"
+echo "       }"
+echo "       "
+echo "       # Make sure this line exists to include conf.d files:"
+echo "       include /etc/nginx/conf.d/*.conf;"
+echo "       "
 echo "       # ... rest of http block ..."
 echo "   }"
 echo ""
-echo "2. Add locations to your server block:"
-echo "   server {"
-echo "       listen 443 ssl http2;"
-echo "       server_name your-domain.com;"
-echo "       # ... SSL configuration ..."
-echo "       include /etc/nginx/conf.d/palo-changelogs-locations.conf;"
-echo "       # ... other locations ..."
-echo "   }"
+echo "2. Customize the server block in $NGINX_CONF:"
+echo "   - Change 'server_name _;' to your actual domain name (required for HTTPS)"
+echo "   - Update SSL certificate paths (ssl_certificate and ssl_certificate_key) - REQUIRED"
+echo "   - If using Let's Encrypt, uncomment OCSP stapling lines and set ssl_trusted_certificate"
+echo "   - Adjust logging paths if needed"
+echo ""
+echo "3. IMPORTANT - SSL Certificate Setup:"
+echo "   The application REQUIRES HTTPS. You must provide valid SSL certificates."
+echo "   Options:"
+echo "   a) Let's Encrypt (recommended):"
+echo "      sudo dnf install certbot python3-certbot-nginx"
+echo "      sudo certbot --nginx -d your-domain.com"
+echo ""
+echo "   b) Self-signed (testing only):"
+echo "      sudo mkdir -p /etc/nginx/ssl"
+echo "      sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \\"
+echo "          -keyout /etc/nginx/ssl/private.key \\"
+echo "          -out /etc/nginx/ssl/certificate.crt"
+echo ""
+echo "   c) Commercial certificate:"
+echo "      Place your certificate and key files in /etc/nginx/ssl/"
+echo "      Update paths in $NGINX_CONF"
+echo ""
+echo "4. Test and reload NGINX:"
+echo "   sudo nginx -t"
+echo "   sudo systemctl reload nginx"
+echo ""
+echo "5. Verify HTTPS is working:"
+echo "   curl -I https://your-domain.com$NGINX_LOCATION_PATH"
+echo "   (Should return 200 OK with Strict-Transport-Security header)"
+echo ""
+echo "The server block will be automatically loaded from /etc/nginx/conf.d/"
+echo "All HTTP traffic will be automatically redirected to HTTPS."
 
 echo ""
-echo "Step 15: Testing NGINX configuration..."
+echo "Step 15: Creating example server block configuration..."
+EXAMPLE_SERVER_BLOCK="$INSTALL_DIR/nginx-server-block-example.conf"
+cat > "$EXAMPLE_SERVER_BLOCK" << EXAMPLE_EOF
+# Example NGINX Server Block Configuration for Palo ChangeLogs
+# 
+# This is an example of how to configure a complete server block.
+# Copy this to /etc/nginx/conf.d/your-domain.conf and customize as needed.
+
+# First, make sure the upstream is included in your http block in /etc/nginx/nginx.conf:
+# http {
+#     include /etc/nginx/conf.d/palo-changelogs-upstream.conf;
+#     ...
+# }
+
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+    
+    # SSL Configuration
+    ssl_certificate /path/to/your/certificate.crt;
+    ssl_certificate_key /path/to/your/private.key;
+    
+    # Include Palo ChangeLogs locations (MUST be inside server block)
+    include /etc/nginx/conf.d/palo-changelogs-locations.conf;
+    
+    # Other application locations can go here...
+}
+EXAMPLE_EOF
+chown "$SERVICE_USER:$SERVICE_USER" "$EXAMPLE_SERVER_BLOCK"
+echo "Example server block created at $EXAMPLE_SERVER_BLOCK"
+
+echo ""
+echo "Step 16: Testing NGINX configuration..."
 if nginx -t 2>/dev/null; then
     echo "NGINX configuration test passed"
 else
     echo "WARNING: NGINX configuration test failed."
-    echo "This is expected if you haven't included the snippet in your server block yet."
-    echo "After adding the include directive, run: nginx -t"
+    echo ""
+    echo "Common causes:"
+    echo "  1. Locations file included at http level (WRONG)"
+    echo "  2. Locations file included outside any block (WRONG)"
+    echo "  3. No server block exists yet"
+    echo ""
+    echo "Solution:"
+    echo "  - The locations file MUST be included INSIDE a server block"
+    echo "  - See example at: $EXAMPLE_SERVER_BLOCK"
+    echo "  - After adding the include directive correctly, run: nginx -t"
+    echo ""
+    echo "To check where the file is being included, run:"
+    echo "  grep -r 'palo-changelogs-locations.conf' /etc/nginx/"
 fi
 
 echo ""
-echo "Step 16: Configuring firewall (if firewall-cmd is available)..."
+echo "Step 17: Configuring firewall (if firewall-cmd is available)..."
 if command -v firewall-cmd &> /dev/null; then
     if firewall-cmd --state &>/dev/null; then
         firewall-cmd --permanent --add-service=http 2>/dev/null || true
@@ -373,7 +509,7 @@ else
 fi
 
 echo ""
-echo "Step 17: Enabling and starting backend service..."
+echo "Step 18: Enabling and starting backend service..."
 systemctl daemon-reload
 systemctl enable palo-changelogs-backend
 systemctl start palo-changelogs-backend
@@ -389,7 +525,7 @@ else
 fi
 
 echo ""
-echo "Step 18: Creating update script..."
+echo "Step 19: Creating update script..."
 UPDATE_SCRIPT="$INSTALL_DIR/update.sh"
 cat > "$UPDATE_SCRIPT" << 'UPDATE_EOF'
 #!/bin/bash
