@@ -259,16 +259,25 @@ systemctl daemon-reload
 echo "Backend service file created at $BACKEND_SERVICE_FILE"
 
 echo ""
-echo "Step 14: Creating NGINX configuration snippet..."
-NGINX_CONF_SNIPPET="/etc/nginx/conf.d/palo-changelogs-locations.conf"
-cat > "$NGINX_CONF_SNIPPET" << NGINX_EOF
-# Palo ChangeLogs Application Configuration
-# Include this file in your main server block with: include /etc/nginx/conf.d/palo-changelogs-locations.conf;
+echo "Step 14: Creating NGINX configuration files..."
+
+# Create upstream configuration (can be included at http level)
+NGINX_UPSTREAM_CONF="/etc/nginx/conf.d/palo-changelogs-upstream.conf"
+cat > "$NGINX_UPSTREAM_CONF" << UPSTREAM_EOF
+# Palo ChangeLogs Backend Upstream
+# Include this in the http block: include /etc/nginx/conf.d/palo-changelogs-upstream.conf;
 
 upstream palo_changelogs_backend {
     server 127.0.0.1:$BACKEND_PORT;
     keepalive 32;
 }
+UPSTREAM_EOF
+
+# Create location configuration (must be included in server block)
+NGINX_LOCATIONS_CONF="/etc/nginx/conf.d/palo-changelogs-locations.conf"
+cat > "$NGINX_LOCATIONS_CONF" << LOCATIONS_EOF
+# Palo ChangeLogs Application Locations
+# Include this file INSIDE your server block: include /etc/nginx/conf.d/palo-changelogs-locations.conf;
 
 # Backend API location
 location $NGINX_LOCATION_PATH/api {
@@ -314,21 +323,29 @@ location $NGINX_LOCATION_PATH/api/health {
     proxy_pass http://palo_changelogs_backend/api/health;
     access_log off;
 }
-NGINX_EOF
+LOCATIONS_EOF
 
-echo "NGINX configuration snippet created at $NGINX_CONF_SNIPPET"
+echo "NGINX configuration files created:"
+echo "  Upstream config: $NGINX_UPSTREAM_CONF"
+echo "  Locations config: $NGINX_LOCATIONS_CONF"
 echo ""
-echo "To use this configuration, add the following line to your main NGINX server block:"
-echo "  include /etc/nginx/conf.d/palo-changelogs-locations.conf;"
+echo "To use these configurations:"
 echo ""
-echo "Example server block:"
-echo "  server {"
-echo "      listen 443 ssl http2;"
-echo "      server_name your-domain.com;"
-echo "      # ... SSL configuration ..."
-echo "      include /etc/nginx/conf.d/palo-changelogs-locations.conf;"
-echo "      # ... other locations ..."
-echo "  }"
+echo "1. Add upstream to your http block in /etc/nginx/nginx.conf:"
+echo "   http {"
+echo "       # ... other directives ..."
+echo "       include /etc/nginx/conf.d/palo-changelogs-upstream.conf;"
+echo "       # ... rest of http block ..."
+echo "   }"
+echo ""
+echo "2. Add locations to your server block:"
+echo "   server {"
+echo "       listen 443 ssl http2;"
+echo "       server_name your-domain.com;"
+echo "       # ... SSL configuration ..."
+echo "       include /etc/nginx/conf.d/palo-changelogs-locations.conf;"
+echo "       # ... other locations ..."
+echo "   }"
 
 echo ""
 echo "Step 15: Testing NGINX configuration..."
@@ -437,10 +454,13 @@ echo "  NGINX location path: $NGINX_LOCATION_PATH"
 echo ""
 echo "Next Steps:"
 echo ""
-echo "1. Add NGINX configuration to your server block:"
-echo "   Edit your NGINX server configuration file (usually in /etc/nginx/conf.d/ or /etc/nginx/sites-available/)"
-echo "   and add this line inside your server block:"
-echo "   include /etc/nginx/conf.d/palo-changelogs-locations.conf;"
+echo "1. Add NGINX configuration:"
+echo "   a) Add upstream to your http block in /etc/nginx/nginx.conf:"
+echo "      include /etc/nginx/conf.d/palo-changelogs-upstream.conf;"
+echo ""
+echo "   b) Add locations to your server block:"
+echo "      include /etc/nginx/conf.d/palo-changelogs-locations.conf;"
+echo "      (This MUST be inside a server block, not at http level)"
 echo ""
 echo "2. Test and reload NGINX:"
 echo "   nginx -t"

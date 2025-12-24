@@ -64,9 +64,25 @@ The script performs the following:
 
 ### 1. Add NGINX Configuration
 
-The script creates a configuration snippet at `/etc/nginx/conf.d/palo-changelogs-locations.conf`. 
+The script creates two configuration files:
 
-**To use it, add this line to your main NGINX server block:**
+1. **Upstream configuration** (`/etc/nginx/conf.d/palo-changelogs-upstream.conf`) - Must be included in the `http` block
+2. **Location configuration** (`/etc/nginx/conf.d/palo-changelogs-locations.conf`) - Must be included inside a `server` block
+
+**Step 1: Add upstream to your `http` block in `/etc/nginx/nginx.conf`:**
+
+```nginx
+http {
+    # ... other directives ...
+    
+    # Include Palo ChangeLogs upstream
+    include /etc/nginx/conf.d/palo-changelogs-upstream.conf;
+    
+    # ... rest of http block ...
+}
+```
+
+**Step 2: Add locations to your server block:**
 
 ```nginx
 server {
@@ -77,12 +93,14 @@ server {
     ssl_certificate /path/to/cert.crt;
     ssl_certificate_key /path/to/key.key;
     
-    # Include Palo ChangeLogs configuration
+    # Include Palo ChangeLogs locations (MUST be inside server block)
     include /etc/nginx/conf.d/palo-changelogs-locations.conf;
     
     # Other location blocks for your other applications...
 }
 ```
+
+**Important:** The locations file must be included inside a `server` block. Including it at the `http` level or outside any block will cause an error.
 
 ### 2. Test and Reload NGINX
 
@@ -115,7 +133,9 @@ sudo journalctl -u palo-changelogs-backend -f
 - **Environment Files:**
   - Frontend: `/opt/palo-changelogs/.env.local`
   - Backend: `/opt/palo-changelogs/.env`
-- **NGINX Config:** `/etc/nginx/conf.d/palo-changelogs-locations.conf`
+- **NGINX Config Files:**
+  - Upstream: `/etc/nginx/conf.d/palo-changelogs-upstream.conf`
+  - Locations: `/etc/nginx/conf.d/palo-changelogs-locations.conf`
 - **Systemd Service:** `/etc/systemd/system/palo-changelogs-backend.service`
 
 ## Updating the Application
