@@ -178,6 +178,12 @@ const App: React.FC = () => {
       console.log(`[Date Filter] Filtered ${allLogs.length} logs to ${logs.length} for date ${normalizedSelectedDate}`);
     }
     
+    // Filter out generic "Config change (seqno:" descriptions
+    logs = logs.filter(log => {
+      const description = log.description || '';
+      return !description.startsWith('Config change (seqno:');
+    });
+    
     return logs;
   })();
   
