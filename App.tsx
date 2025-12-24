@@ -7,7 +7,7 @@ import { Bell, Calendar, AlertTriangle, RefreshCw, User, Award, Activity, Layers
 import { ChangeRecord, DailyStat, AdminStat } from './types';
 import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
 import { fetchChangeLogsFromDatabase } from './services/databaseService';
-import { getTodayMST, getMSTDate, extractDateFromTimestamp, addDaysToDateString } from './utils/dateUtils';
+import { getTodayMST, extractDateFromTimestamp, addDaysToDateString } from './utils/dateUtils';
 
 const App: React.FC = () => {
   const [allLogs, setAllLogs] = useState<ChangeRecord[]>([]);
@@ -184,16 +184,6 @@ const App: React.FC = () => {
   const changeCount = tableLogs.length;
   const totalWindowChanges = allLogs.length;
   
-  const selectedDateObj = (() => {
-    try {
-      const date = getMSTDate(selectedDate);
-      return date;
-    } catch (e) {
-      console.warn('Error creating selectedDateObj:', e);
-      return new Date(selectedDate);
-    }
-  })();
-  
   const displayDateLabel = (() => {
     try {
       const [year, month, day] = selectedDate.split('-').map(Number);
@@ -357,7 +347,15 @@ const App: React.FC = () => {
               <StatCard 
                 title={isSearchMode 
                   ? `Search Results (${timeRange === '7days' ? 'Last 7 Days' : timeRange === '30days' ? 'Last 30 Days' : timeRange === '3months' ? 'Last 3 Months' : timeRange === '6months' ? 'Last 6 Months' : 'Last Year'})`
-                  : `Changes on ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' }).format(selectedDateObj)}`
+                  : (() => {
+                      try {
+                        const [year, month, day] = selectedDate.split('-').map(Number);
+                        const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+                        return `Changes on ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' }).format(date)}`;
+                      } catch (e) {
+                        return `Changes on ${selectedDate}`;
+                      }
+                    })()
                 }
                 value={changeCount.toString()} 
                 trend={changeCount > 0 ? "Changes Detected" : "No Activity"} 
