@@ -207,6 +207,11 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
 
       const description = path || `Config change (seqno: ${seqno})`;
 
+      // Skip generic "Config change (seqno:" entries - they don't have meaningful descriptions
+      if (description.startsWith('Config change (seqno:')) {
+        return; // Skip this entry
+      }
+
       records.push({
         id: `log-${seqno || index}-${Date.now()}`,
         seqno: seqno,
