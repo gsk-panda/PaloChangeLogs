@@ -72,6 +72,13 @@ const getTotalCount = db.prepare(`
   SELECT COUNT(*) as count FROM change_logs
 `);
 
+const getDatesWithDataQuery = db.prepare(`
+  SELECT log_date as date, COUNT(*) as count 
+  FROM change_logs 
+  GROUP BY log_date 
+  ORDER BY log_date DESC
+`);
+
 export const saveChangeLogs = (logs: ChangeRecord[], date: string) => {
   const insertMany = db.transaction((logs: ChangeRecord[], date: string) => {
     for (const log of logs) {
@@ -137,6 +144,14 @@ export const hasDateData = (date: string): boolean => {
 export const getTotalEntryCount = (): number => {
   const result = getTotalCount.get() as { count: number };
   return result.count;
+};
+
+export const getDatesWithData = (): Array<{ date: string; count: number }> => {
+  const rows = getDatesWithDataQuery.all() as any[];
+  return rows.map(row => ({
+    date: row.date,
+    count: row.count
+  }));
 };
 
 export const closeDb = () => db.close();

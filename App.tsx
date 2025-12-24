@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChangeLogTable from './components/ChangeLogTable';
 import StatsChart from './components/StatsChart';
+import DatabaseViewer from './components/DatabaseViewer';
 import { Bell, Calendar, AlertTriangle, RefreshCw, User, Award, Activity, Layers, ShieldCheck, Search, ChevronDown } from 'lucide-react';
 import { ChangeRecord, DailyStat, AdminStat } from './types';
 import { fetchChangeLogsRange, calculateDailyStatsInRange, calculateAdminStats } from './services/panoramaService';
@@ -313,6 +314,7 @@ const App: React.FC = () => {
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                 <DatabaseViewer onDateSelect={handleDateSelect} />
                  <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 shadow-sm hover:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/50 transition-all">
                     <Calendar size={16} className="text-slate-500" />
                     <input 

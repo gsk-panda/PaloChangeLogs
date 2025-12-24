@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getChangeLogsByDateRange, getChangeLogsByDate, hasDateData, getTotalEntryCount } from './db';
+import { getChangeLogsByDateRange, getChangeLogsByDate, hasDateData, getTotalEntryCount, getDatesWithData } from './db';
 
 const router = Router();
 
@@ -55,6 +55,16 @@ router.get('/api/changelogs/count', (req, res) => {
 
 router.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+router.get('/api/changelogs/dates', (req, res) => {
+  try {
+    const dates = getDatesWithData();
+    res.json({ dates });
+  } catch (error: any) {
+    console.error('Error getting dates with data:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
 });
 
 export default router;
