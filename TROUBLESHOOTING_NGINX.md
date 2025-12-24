@@ -1,5 +1,61 @@
 # NGINX Configuration Troubleshooting
 
+## Error: "host not found in upstream 'palo_changelogs_backend'"
+
+This error occurs when the upstream block is not defined in the `http {}` block of `/etc/nginx/nginx.conf`.
+
+### Quick Fix
+
+Add the upstream block to your `http {}` block in `/etc/nginx/nginx.conf`:
+
+```nginx
+http {
+    # ... other directives ...
+    
+    upstream palo_changelogs_backend {
+        server 127.0.0.1:3001;  # Change port if different
+        keepalive 32;
+    }
+    
+    # Make sure this line exists:
+    include /etc/nginx/conf.d/*.conf;
+    
+    # ... rest of http block ...
+}
+```
+
+### Automated Fix Script
+
+You can also run this command to automatically add it:
+
+```bash
+# Backup nginx.conf first
+sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup
+
+# Add upstream block (adjust port if needed)
+sudo sed -i '/^http {/a\    upstream palo_changelogs_backend {\n        server 127.0.0.1:3001;\n        keepalive 32;\n    }' /etc/nginx/nginx.conf
+
+# Test configuration
+sudo nginx -t
+
+# If test passes, reload
+sudo systemctl reload nginx
+```
+
+### Verify
+
+After adding the upstream block:
+
+```bash
+# Test configuration
+sudo nginx -t
+
+# Check if upstream is found
+sudo nginx -T | grep -A 3 "upstream palo_changelogs_backend"
+```
+
+---
+
 ## Error: "location directive is not allowed here"
 
 This error occurs when the `palo-changelogs-locations.conf` file is included at the wrong level in your NGINX configuration.

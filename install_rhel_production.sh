@@ -387,24 +387,72 @@ NGINX_EOF
 
 echo "NGINX configuration file created at $NGINX_CONF"
 echo ""
-echo "Setup Instructions:"
-echo ""
-echo "1. Add the upstream block to your http {} block in /etc/nginx/nginx.conf:"
-echo "   Edit /etc/nginx/nginx.conf and add this inside the http {} block:"
-echo ""
-echo "   http {"
-echo "       # ... other directives ..."
-echo "       "
-echo "       upstream palo_changelogs_backend {"
-echo "           server 127.0.0.1:$BACKEND_PORT;"
-echo "           keepalive 32;"
-echo "       }"
-echo "       "
-echo "       # Make sure this line exists to include conf.d files:"
-echo "       include /etc/nginx/conf.d/*.conf;"
-echo "       "
-echo "       # ... rest of http block ..."
-echo "   }"
+echo "Step 15: Configuring upstream in NGINX..."
+
+# Try to automatically add upstream to nginx.conf
+NGINX_MAIN_CONF="/etc/nginx/nginx.conf"
+if [ -f "$NGINX_MAIN_CONF" ]; then
+    # Check if upstream already exists
+    if grep -q "upstream palo_changelogs_backend" "$NGINX_MAIN_CONF"; then
+        echo "Upstream block already exists in $NGINX_MAIN_CONF"
+    else
+        # Check if http block exists
+        if grep -q "^http {" "$NGINX_MAIN_CONF" || grep -q "^http{" "$NGINX_MAIN_CONF"; then
+            echo "Attempting to add upstream block to $NGINX_MAIN_CONF..."
+            # Create backup
+            cp "$NGINX_MAIN_CONF" "${NGINX_MAIN_CONF}.backup.$(date +%Y%m%d_%H%M%S)"
+            
+            # Try to add upstream block after http { line
+            UPSTREAM_BLOCK="    upstream palo_changelogs_backend {\n        server 127.0.0.1:$BACKEND_PORT;\n        keepalive 32;\n    }"
+            
+            # Use sed to add upstream block (works with most nginx.conf formats)
+            if sed -i "/^http {/a\\$UPSTREAM_BLOCK" "$NGINX_MAIN_CONF" 2>/dev/null || \
+               sed -i "/^http{/a\\$UPSTREAM_BLOCK" "$NGINX_MAIN_CONF" 2>/dev/null; then
+                echo "✓ Upstream block added to $NGINX_MAIN_CONF"
+            else
+                echo "⚠ Could not automatically add upstream block. Manual configuration required."
+                MANUAL_CONFIG_NEEDED=true
+            fi
+        else
+            echo "⚠ Could not find http block in $NGINX_MAIN_CONF. Manual configuration required."
+            MANUAL_CONFIG_NEEDED=true
+        fi
+    fi
+    
+    # Ensure conf.d include exists
+    if ! grep -q "include.*conf.d.*\*\.conf" "$NGINX_MAIN_CONF"; then
+        echo "Adding include directive for conf.d files..."
+        if grep -q "^http {" "$NGINX_MAIN_CONF" || grep -q "^http{" "$NGINX_MAIN_CONF"; then
+            sed -i "/^http {/a\\    include /etc/nginx/conf.d/*.conf;" "$NGINX_MAIN_CONF" 2>/dev/null || \
+            sed -i "/^http{/a\\    include /etc/nginx/conf.d/*.conf;" "$NGINX_MAIN_CONF" 2>/dev/null
+            echo "✓ Added include directive for conf.d files"
+        fi
+    fi
+else
+    echo "⚠ Could not find $NGINX_MAIN_CONF. Manual configuration required."
+    MANUAL_CONFIG_NEEDED=true
+fi
+
+if [ "$MANUAL_CONFIG_NEEDED" = true ]; then
+    echo ""
+    echo "MANUAL CONFIGURATION REQUIRED:"
+    echo "Add the upstream block to your http {} block in /etc/nginx/nginx.conf:"
+    echo ""
+    echo "   http {"
+    echo "       # ... other directives ..."
+    echo "       "
+    echo "       upstream palo_changelogs_backend {"
+    echo "           server 127.0.0.1:$BACKEND_PORT;"
+    echo "           keepalive 32;"
+    echo "       }"
+    echo "       "
+    echo "       # Make sure this line exists to include conf.d files:"
+    echo "       include /etc/nginx/conf.d/*.conf;"
+    echo "       "
+    echo "       # ... rest of http block ..."
+    echo "   }"
+    echo ""
+fi
 echo ""
 echo "2. Customize the server block in $NGINX_CONF:"
 echo "   - Change 'server_name _;' to your actual domain name (required for HTTPS)"
