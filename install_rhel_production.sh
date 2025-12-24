@@ -37,7 +37,7 @@ dnf update -y
 
 echo ""
 echo "Step 2: Installing prerequisites..."
-dnf install -y git curl wget tar gzip python3 make gcc-c++ sqlite-devel nginx openssl
+dnf install -y git curl wget tar gzip python3 make gcc-c++ sqlite-devel nginx openssl node-gyp
 
 echo ""
 echo "Step 3: Installing Node.js ${NODE_VERSION}.x..."
@@ -104,18 +104,51 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 echo ""
 echo "Step 9: Installing npm dependencies..."
 cd "$INSTALL_DIR"
+
+# Set npm configuration for better-sqlite3 build
+# Use prebuilt binaries if available, otherwise build from source
+export npm_config_build_from_source=false
+export npm_config_prefer_offline=false
+
+# Handle corporate proxy if needed (will be detected automatically)
+# Set npm proxy if environment variables are set
+if [ -n "$HTTP_PROXY" ] || [ -n "$HTTPS_PROXY" ]; then
+    echo "Detected proxy environment variables"
+    [ -n "$HTTP_PROXY" ] && npm config set proxy "$HTTP_PROXY" || true
+    [ -n "$HTTPS_PROXY" ] && npm config set https-proxy "$HTTPS_PROXY" || true
+fi
+
+# Ensure proper permissions for node_modules
+mkdir -p "$INSTALL_DIR/node_modules"
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+
 if [ -d "node_modules" ] && [ -f "package.json" ]; then
     echo "node_modules directory exists. Checking if dependencies need updating..."
     if [ "package.json" -nt "node_modules" ] || [ ! -f "package-lock.json" ]; then
         echo "package.json is newer than node_modules or package-lock.json missing. Installing dependencies..."
-        sudo -u "$SERVICE_USER" npm install
+        # Install as service user but allow native module compilation
+        sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm install --build-from-source=false || npm install --ignore-scripts && npm rebuild better-sqlite3"
     else
         echo "Dependencies appear to be up to date. Skipping npm install."
     fi
 else
     echo "node_modules not found. Installing dependencies..."
-    sudo -u "$SERVICE_USER" npm install
+    echo "Note: better-sqlite3 may take a few minutes to compile..."
+    # Try with prebuilt binaries first, fall back to building if needed
+    sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm install --build-from-source=false" || \
+    sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm install --ignore-scripts && npm rebuild better-sqlite3"
 fi
+
+# Verify better-sqlite3 installation
+if [ -d "node_modules/better-sqlite3" ]; then
+    echo "✓ better-sqlite3 installed successfully"
+else
+    echo "⚠ Warning: better-sqlite3 installation may have issues"
+    echo "   The application may still work if prebuilt binaries are available"
+fi
+
+# Ensure proper ownership
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR/node_modules"
 
 echo ""
 echo "Step 10: Configuring environment variables..."
@@ -351,20 +384,22 @@ cat > "$NGINX_CONF" << NGINX_EOF
 # ============================================================================
 
 # HTTP Server - Redirect all HTTP traffic to HTTPS
+# Note: Using default_server to avoid conflicts with other server blocks
 server {
-    listen 80;
-    listen [::]:80;
-    server_name _;  # TODO: Change to your domain name (e.g., example.com)
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;  # TODO: Change to your actual domain name (e.g., example.com)
     
     # Redirect all HTTP requests to HTTPS
-    return 301 https://\$server_name\$request_uri;
+    return 301 https://\$host\$request_uri;
 }
 
 # HTTPS Server - Main application server
+# Note: Using default_server to avoid conflicts with other server blocks
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name _;  # TODO: Change to your domain name (e.g., example.com)
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
+    server_name _;  # TODO: Change to your actual domain name (e.g., example.com)
     
     # SSL Certificate Configuration - TODO: Update these paths to your certificate files
     ssl_certificate /etc/nginx/ssl/certificate.crt;
@@ -402,8 +437,11 @@ server {
     client_header_timeout 60s;
     
     # Panorama API proxy location
+    # Note: Must come before the main location block to match first
     location $NGINX_LOCATION_PATH/panorama-proxy/ {
-        proxy_pass https://$PANORAMA_HOST/;
+        # Rewrite to remove the location path prefix
+        rewrite ^$NGINX_LOCATION_PATH/panorama-proxy/(.*)$ /\$1 break;
+        proxy_pass https://$PANORAMA_HOST;
         proxy_ssl_verify off;
         proxy_ssl_server_name on;
         proxy_http_version 1.1;
@@ -421,9 +459,10 @@ server {
     }
     
     # Backend API location
+    # Use prefix location with trailing slash for proper matching
     location $NGINX_LOCATION_PATH/api/ {
         # Rewrite to remove the location path prefix before proxying
-        rewrite ^$NGINX_LOCATION_PATH/api/(.*) /api/\$1 break;
+        rewrite ^$NGINX_LOCATION_PATH/api/(.*)$ /api/\$1 break;
         proxy_pass http://palo_changelogs_backend;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;

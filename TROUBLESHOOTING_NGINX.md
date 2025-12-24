@@ -228,6 +228,107 @@ This will automatically add the Panorama proxy configuration to NGINX.
 
 ---
 
+## Error: "Connection Refused"
+
+This error occurs when the client cannot establish a connection to the server.
+
+### Quick Diagnosis
+
+Run the diagnostic script:
+
+```bash
+sudo bash test-connectivity.sh
+```
+
+Or manually check:
+
+### Step 1: Verify NGINX is Running
+
+```bash
+sudo systemctl status nginx
+```
+
+If not running:
+```bash
+sudo systemctl start nginx
+sudo systemctl enable nginx
+```
+
+### Step 2: Check What Ports NGINX is Listening On
+
+```bash
+sudo ss -tlnp | grep nginx
+# or
+sudo netstat -tlnp | grep nginx
+```
+
+You should see NGINX listening on ports 80 and 443.
+
+### Step 3: Test Backend Directly
+
+```bash
+curl http://localhost:3001/api/health
+```
+
+Should return: `{"status":"ok","timestamp":"..."}`
+
+### Step 4: Test Through NGINX
+
+```bash
+# HTTP (should redirect to HTTPS)
+curl -I http://localhost/changelogs/api/health
+
+# HTTPS
+curl -k https://localhost/changelogs/api/health
+```
+
+### Step 5: Check Firewall
+
+```bash
+sudo firewall-cmd --list-all
+```
+
+Make sure HTTP and HTTPS services are allowed:
+```bash
+sudo firewall-cmd --permanent --add-service=http --add-service=https
+sudo firewall-cmd --reload
+```
+
+### Step 6: Fix Server Name Conflict
+
+If you see warnings about "conflicting server name '_'", update the server_name:
+
+Edit `/etc/nginx/conf.d/palo-changelogs.conf` and change:
+```nginx
+server_name _;  # Change this
+```
+
+To your actual domain:
+```nginx
+server_name your-domain.com;
+```
+
+Or use `default_server` directive (already added in latest install script).
+
+### Step 7: Check NGINX Error Logs
+
+```bash
+sudo tail -f /var/log/nginx/error.log
+```
+
+Look for connection errors or proxy errors.
+
+### Common Causes
+
+1. **NGINX not running**: `sudo systemctl start nginx`
+2. **Firewall blocking**: Allow HTTP/HTTPS services
+3. **Wrong URL**: Make sure you're accessing via the correct path (e.g., `/changelogs`)
+4. **Server name conflict**: Update server_name or use default_server
+5. **Backend not running**: `sudo systemctl status palo-changelogs-backend`
+6. **Upstream not configured**: Run `sudo bash fix-nginx-upstream.sh`
+
+---
+
 ## Error: "location directive is not allowed here"
 
 This error occurs when the `palo-changelogs-locations.conf` file is included at the wrong level in your NGINX configuration.
