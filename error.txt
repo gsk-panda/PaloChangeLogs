@@ -1,0 +1,29 @@
+Step 9: Installing npm dependencies...
+node_modules not found. Installing dependencies...
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm error code 1
+npm error path /opt/palo-changelogs/node_modules/better-sqlite3
+npm error command failed
+npm error command sh -c prebuild-install || node-gyp rebuild --release
+npm error sh: line 1: /opt/palo-changelogs/node_modules/.bin/prebuild-install: Operation not permitted
+npm error gyp info it worked if it ends with ok
+npm error gyp info using node-gyp@10.1.0
+npm error gyp info using node@20.19.5 | linux | x64
+npm error gyp info find Python using Python version 3.9.25 found at "/usr/bin/python3"
+npm error gyp http GET https://nodejs.org/download/release/v20.19.5/node-v20.19.5-headers.tar.gz
+npm error gyp http 401 http://coloproxy04/B0002D0000N0002N0001F0000S0000R0004/10.100.5.227/http://nodejs.org/download/release/v20.19.5/node-v20.19.5-headers.tar.gz
+npm error gyp WARN install got an error, rolling back install
+npm error gyp ERR! configure error 
+npm error gyp ERR! stack Error: 401 response downloading https://nodejs.org/download/release/v20.19.5/node-v20.19.5-headers.tar.gz
+npm error gyp ERR! stack at go (/usr/lib/node_modules/npm/node_modules/node-gyp/lib/install.js:223:21)
+npm error gyp ERR! stack at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+npm error gyp ERR! stack at async install (/usr/lib/node_modules/npm/node_modules/node-gyp/lib/install.js:63:18)
+npm error gyp ERR! stack at async getNodeDir (/usr/lib/node_modules/npm/node_modules/node-gyp/lib/configure.js:79:7)
+npm error gyp ERR! stack at async run (/usr/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js:81:18)
+npm error gyp ERR! System Linux 5.14.0-611.13.1.el9_7.x86_64
+npm error gyp ERR! command "/usr/bin/node" "/usr/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js" "rebuild" "--release"
+npm error gyp ERR! cwd /opt/palo-changelogs/node_modules/better-sqlite3
+npm error gyp ERR! node -v v20.19.5
+npm error gyp ERR! node-gyp -v v10.1.0
+npm error gyp ERR! not ok
+npm error A complete log of this run can be found in: /opt/palo-changelogs/.npm/_logs/2025-12-24T17_35_54_286Z-debug-0.log
