@@ -242,6 +242,33 @@ echo ""
 echo "Step 9: Installing npm dependencies..."
 cd "$INSTALL_DIR"
 
+# Function to download Node.js headers manually (for proxy-restricted environments)
+download_node_headers() {
+    local NODE_VER=$(node -v | sed 's/v//')
+    local HEADERS_URL="https://nodejs.org/download/release/v${NODE_VER}/node-v${NODE_VER}-headers.tar.gz"
+    local HEADERS_DIR="/home/${SERVICE_USER}/.node-gyp/${NODE_VER}"
+    
+    echo "Attempting to download Node.js headers manually..."
+    echo "  Node version: ${NODE_VER}"
+    echo "  Headers URL: ${HEADERS_URL}"
+    
+    mkdir -p "$HEADERS_DIR"
+    chown -R "$SERVICE_USER:$SERVICE_USER" "/home/${SERVICE_USER}/.node-gyp"
+    
+    # Try downloading headers (may fail if proxy blocks it)
+    if sudo -u "$SERVICE_USER" bash -c "cd '$HEADERS_DIR' && (curl -fsSL '$HEADERS_URL' -o headers.tar.gz 2>/dev/null || wget -q '$HEADERS_URL' -O headers.tar.gz 2>/dev/null)"; then
+        if [ -f "$HEADERS_DIR/headers.tar.gz" ]; then
+            sudo -u "$SERVICE_USER" bash -c "cd '$HEADERS_DIR' && tar -xzf headers.tar.gz --strip-components=1 && rm headers.tar.gz"
+            echo "✓ Node.js headers downloaded successfully"
+            return 0
+        fi
+    fi
+    
+    echo "⚠ Could not download Node.js headers automatically"
+    echo "   Headers will be downloaded by node-gyp during build (may fail if proxy blocks nodejs.org)"
+    return 1
+}
+
 # Set npm configuration for better-sqlite3 build
 # Use prebuilt binaries if available, otherwise build from source
 export npm_config_build_from_source=false
@@ -253,35 +280,136 @@ if [ -n "$HTTP_PROXY" ] || [ -n "$HTTPS_PROXY" ]; then
     echo "Detected proxy environment variables"
     [ -n "$HTTP_PROXY" ] && npm config set proxy "$HTTP_PROXY" || true
     [ -n "$HTTPS_PROXY" ] && npm config set https-proxy "$HTTPS_PROXY" || true
+    echo "⚠ Proxy configured - Node.js headers download may be blocked"
+    echo "   If better-sqlite3 build fails, try downloading headers manually"
+fi
+
+# Try to download Node.js headers proactively (helps with proxy issues)
+if command -v node &> /dev/null; then
+    download_node_headers || true
 fi
 
 # Ensure proper permissions for node_modules
 mkdir -p "$INSTALL_DIR/node_modules"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
+# Function to install better-sqlite3 with fallback strategies
+install_better_sqlite3() {
+    local INSTALL_DIR="$1"
+    local SERVICE_USER="$2"
+    
+    echo "Installing better-sqlite3..."
+    
+    # Strategy 1: Try prebuilt binaries (fastest, no compilation needed)
+    echo "  Strategy 1: Attempting prebuilt binaries..."
+    if sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm_config_build_from_source=false npm install better-sqlite3 --build-from-source=false 2>&1"; then
+        if [ -f "$INSTALL_DIR/node_modules/better-sqlite3/lib/better_sqlite3.node" ] || \
+           [ -f "$INSTALL_DIR/node_modules/better-sqlite3/build/Release/better_sqlite3.node" ]; then
+            echo "  ✓ better-sqlite3 installed using prebuilt binaries"
+            return 0
+        fi
+    fi
+    
+    # Strategy 2: Install all dependencies first, then rebuild better-sqlite3
+    echo "  Strategy 2: Installing dependencies without scripts, then rebuilding better-sqlite3..."
+    if sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm install --ignore-scripts 2>&1"; then
+        # Fix permissions on node_modules/.bin
+        chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR/node_modules"
+        chmod -R u+x "$INSTALL_DIR/node_modules/.bin" 2>/dev/null || true
+        
+        # Try to rebuild better-sqlite3
+        if sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm rebuild better-sqlite3 2>&1"; then
+            if [ -f "$INSTALL_DIR/node_modules/better-sqlite3/lib/better_sqlite3.node" ] || \
+               [ -f "$INSTALL_DIR/node_modules/better-sqlite3/build/Release/better_sqlite3.node" ]; then
+                echo "  ✓ better-sqlite3 rebuilt successfully"
+                return 0
+            fi
+        fi
+    fi
+    
+    # Strategy 3: Manual build with explicit node-gyp configuration
+    echo "  Strategy 3: Manual build with node-gyp..."
+    if sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR/node_modules/better-sqlite3' && npm_config_build_from_source=true npm run build-release 2>&1"; then
+        if [ -f "$INSTALL_DIR/node_modules/better-sqlite3/lib/better_sqlite3.node" ] || \
+           [ -f "$INSTALL_DIR/node_modules/better-sqlite3/build/Release/better_sqlite3.node" ]; then
+            echo "  ✓ better-sqlite3 built manually"
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
 if [ -d "node_modules" ] && [ -f "package.json" ]; then
     echo "node_modules directory exists. Checking if dependencies need updating..."
     if [ "package.json" -nt "node_modules" ] || [ ! -f "package-lock.json" ]; then
         echo "package.json is newer than node_modules or package-lock.json missing. Installing dependencies..."
-        # Install as service user but allow native module compilation
-        sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm install --build-from-source=false || npm install --ignore-scripts && npm rebuild better-sqlite3"
+        
+        # Install all dependencies except better-sqlite3 first
+        echo "Installing dependencies (excluding better-sqlite3)..."
+        sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm install --ignore-scripts 2>&1" || true
+        
+        # Fix permissions
+        chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR/node_modules"
+        chmod -R u+x "$INSTALL_DIR/node_modules/.bin" 2>/dev/null || true
+        
+        # Install better-sqlite3 with fallback strategies
+        if ! install_better_sqlite3 "$INSTALL_DIR" "$SERVICE_USER"; then
+            echo "⚠ Warning: better-sqlite3 installation failed"
+            echo ""
+            echo "Troubleshooting steps:"
+            echo "1. Download Node.js headers manually:"
+            echo "   sudo bash fix-node-headers-proxy.sh"
+            echo ""
+            echo "2. Or download headers on another machine and transfer:"
+            echo "   Download: https://nodejs.org/download/release/v\$(node -v | sed 's/v//')/node-v\$(node -v | sed 's/v//')-headers.tar.gz"
+            echo "   Extract to: /home/${SERVICE_USER}/.node-gyp/\$(node -v | sed 's/v//')/"
+            echo ""
+            echo "3. Then retry:"
+            echo "   cd $INSTALL_DIR"
+            echo "   sudo -u $SERVICE_USER npm rebuild better-sqlite3"
+        fi
     else
         echo "Dependencies appear to be up to date. Skipping npm install."
     fi
 else
     echo "node_modules not found. Installing dependencies..."
     echo "Note: better-sqlite3 may take a few minutes to compile..."
-    # Try with prebuilt binaries first, fall back to building if needed
-    sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm install --build-from-source=false" || \
-    sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm install --ignore-scripts && npm rebuild better-sqlite3"
+    
+    # Install all dependencies except better-sqlite3 first
+    echo "Installing dependencies (excluding better-sqlite3)..."
+    sudo -u "$SERVICE_USER" bash -c "cd '$INSTALL_DIR' && npm install --ignore-scripts 2>&1" || true
+    
+    # Fix permissions
+    chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR/node_modules"
+    chmod -R u+x "$INSTALL_DIR/node_modules/.bin" 2>/dev/null || true
+    
+    # Install better-sqlite3 with fallback strategies
+    if ! install_better_sqlite3 "$INSTALL_DIR" "$SERVICE_USER"; then
+        echo "⚠ Warning: better-sqlite3 installation failed"
+        echo ""
+        echo "Troubleshooting steps:"
+        echo "1. Download Node.js headers manually:"
+        echo "   sudo bash fix-node-headers-proxy.sh"
+        echo ""
+        echo "2. Or download headers on another machine and transfer:"
+        echo "   Download: https://nodejs.org/download/release/v\$(node -v | sed 's/v//')/node-v\$(node -v | sed 's/v//')-headers.tar.gz"
+        echo "   Extract to: /home/${SERVICE_USER}/.node-gyp/\$(node -v | sed 's/v//')/"
+        echo ""
+        echo "3. Then retry:"
+        echo "   cd $INSTALL_DIR"
+        echo "   sudo -u $SERVICE_USER npm rebuild better-sqlite3"
+    fi
 fi
 
 # Verify better-sqlite3 installation
-if [ -d "node_modules/better-sqlite3" ]; then
+if [ -f "$INSTALL_DIR/node_modules/better-sqlite3/lib/better_sqlite3.node" ] || \
+   [ -f "$INSTALL_DIR/node_modules/better-sqlite3/build/Release/better_sqlite3.node" ]; then
     echo "✓ better-sqlite3 installed successfully"
 else
-    echo "⚠ Warning: better-sqlite3 installation may have issues"
-    echo "   The application may still work if prebuilt binaries are available"
+    echo "⚠ Warning: better-sqlite3 binary not found"
+    echo "   The application may not work correctly"
+    echo "   Run: sudo bash fix-node-headers-proxy.sh"
 fi
 
 # Ensure proper ownership

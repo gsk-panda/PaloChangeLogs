@@ -32,7 +32,32 @@ else
 fi
 
 echo ""
-echo "Step 2: Downloading repository as archive..."
+echo "Step 2: Downloading Node.js headers (for building native modules)..."
+if command -v node &> /dev/null; then
+    NODE_VERSION=$(node -v | sed 's/v//')
+    HEADERS_URL="https://nodejs.org/download/release/v${NODE_VERSION}/node-v${NODE_VERSION}-headers.tar.gz"
+    echo "Node.js version detected: ${NODE_VERSION}"
+    echo "Downloading headers from: ${HEADERS_URL}"
+    
+    if command -v curl &> /dev/null; then
+        curl -fsSL "$HEADERS_URL" -o "node-v${NODE_VERSION}-headers.tar.gz" && \
+        echo "✓ Downloaded: node-v${NODE_VERSION}-headers.tar.gz" || \
+        echo "⚠ Warning: Could not download Node.js headers (may be blocked by proxy)"
+    elif command -v wget &> /dev/null; then
+        wget "$HEADERS_URL" -O "node-v${NODE_VERSION}-headers.tar.gz" && \
+        echo "✓ Downloaded: node-v${NODE_VERSION}-headers.tar.gz" || \
+        echo "⚠ Warning: Could not download Node.js headers (may be blocked by proxy)"
+    else
+        echo "⚠ Warning: curl or wget not found, skipping headers download"
+    fi
+else
+    echo "⚠ Warning: Node.js not found, cannot determine version for headers"
+    echo "   You can manually download headers for your Node.js version from:"
+    echo "   https://nodejs.org/download/release/"
+fi
+
+echo ""
+echo "Step 3: Downloading repository as archive..."
 if command -v git &> /dev/null; then
     if [ -d "PaloChangeLogs" ]; then
         echo "Repository directory exists, updating..."
@@ -63,7 +88,7 @@ else
 fi
 
 echo ""
-echo "Step 3: Creating transfer instructions..."
+echo "Step 4: Creating transfer instructions..."
 cat > TRANSFER_INSTRUCTIONS.txt << EOF
 ==========================================
 Offline Installation Transfer Instructions
@@ -72,6 +97,7 @@ Offline Installation Transfer Instructions
 Files downloaded:
 1. node-setup-${NODE_VERSION}.sh - Node.js installation script
 2. palo-changelogs-repo.tar.gz - Application repository archive
+3. node-v*.tar.gz - Node.js headers (if downloaded, for building native modules)
 
 To transfer to server:
 1. From your local machine (with internet access), run:
@@ -80,12 +106,23 @@ To transfer to server:
 2. Or transfer files individually:
    scp node-setup-${NODE_VERSION}.sh user@server:/tmp/
    scp palo-changelogs-repo.tar.gz user@server:/tmp/
+   scp node-v*-headers.tar.gz user@server:/tmp/  # If downloaded
 
-3. On the server, extract and run:
+3. On the server, extract repository and headers:
    cd /tmp/offline-install-files
    tar -xzf palo-changelogs-repo.tar.gz
+   
+   # Extract Node.js headers (if downloaded)
+   if [ -f node-v*-headers.tar.gz ]; then
+       NODE_VERSION=\$(node -v | sed 's/v//')
+       mkdir -p /home/palo-changelogs/.node-gyp/\${NODE_VERSION}
+       tar -xzf node-v*-headers.tar.gz -C /home/palo-changelogs/.node-gyp/\${NODE_VERSION} --strip-components=1
+       chown -R palo-changelogs:palo-changelogs /home/palo-changelogs/.node-gyp
+   fi
+   
+   # Run installation
    cd PaloChangeLogs
-   sudo bash install_rhel_production.sh --offline --node-setup /tmp/node-setup-${NODE_VERSION}.sh --repo-dir /tmp/offline-install-files/PaloChangeLogs
+   sudo bash install_rhel_production.sh --offline --node-setup /tmp/offline-install-files/node-setup-${NODE_VERSION}.sh --repo-dir /tmp/offline-install-files/PaloChangeLogs
 
 Alternative: If you have the repository already on the server, you can:
 1. Copy node-setup-${NODE_VERSION}.sh to the server
