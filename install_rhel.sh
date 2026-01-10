@@ -26,7 +26,30 @@ dnf update -y
 
 echo ""
 echo "Step 2: Installing prerequisites..."
-dnf install -y git curl wget tar gzip python3 make gcc-c++ sqlite-devel nginx openssl
+echo "Installing base packages..."
+dnf install -y git curl wget tar gzip python3 make gcc-c++ nginx openssl
+
+echo "Installing SQLite development headers (required for better-sqlite3)..."
+SQLITE_DEVEL_INSTALLED=false
+
+if dnf install -y sqlite-devel 2>/dev/null; then
+    echo "✓ sqlite-devel installed successfully"
+    SQLITE_DEVEL_INSTALLED=true
+elif dnf install -y libsqlite3x-devel 2>/dev/null; then
+    echo "✓ libsqlite3x-devel installed successfully (alternative package)"
+    SQLITE_DEVEL_INSTALLED=true
+elif dnf install -y sqlite3-devel 2>/dev/null; then
+    echo "✓ sqlite3-devel installed successfully (alternative package)"
+    SQLITE_DEVEL_INSTALLED=true
+else
+    echo "⚠ Warning: SQLite development headers not found in available repositories"
+    echo "   Attempted packages: sqlite-devel, libsqlite3x-devel, sqlite3-devel"
+    echo "   better-sqlite3 will attempt to use prebuilt binaries or build from bundled SQLite"
+    echo "   If better-sqlite3 fails to install, you may need to:"
+    echo "   1. Add EPEL repository: dnf install -y epel-release"
+    echo "   2. Or manually install sqlite-devel from your package manager"
+    echo "   3. Or configure your artifactory to include sqlite-devel"
+fi
 
 echo ""
 echo "Step 3: Installing Node.js ${NODE_VERSION}.x..."
