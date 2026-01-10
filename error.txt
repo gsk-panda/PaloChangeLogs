@@ -1,29 +1,62 @@
-Step 9: Installing npm dependencies...
-node_modules not found. Installing dependencies...
-npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
-npm error code 1
-npm error path /opt/palo-changelogs/node_modules/better-sqlite3
-npm error command failed
-npm error command sh -c prebuild-install || node-gyp rebuild --release
-npm error sh: line 1: /opt/palo-changelogs/node_modules/.bin/prebuild-install: Operation not permitted
-npm error gyp info it worked if it ends with ok
-npm error gyp info using node-gyp@10.1.0
-npm error gyp info using node@20.19.5 | linux | x64
-npm error gyp info find Python using Python version 3.9.25 found at "/usr/bin/python3"
-npm error gyp http GET https://nodejs.org/download/release/v20.19.5/node-v20.19.5-headers.tar.gz
-npm error gyp http 401 http://coloproxy04/B0002D0000N0002N0001F0000S0000R0004/10.100.5.227/http://nodejs.org/download/release/v20.19.5/node-v20.19.5-headers.tar.gz
-npm error gyp WARN install got an error, rolling back install
-npm error gyp ERR! configure error 
-npm error gyp ERR! stack Error: 401 response downloading https://nodejs.org/download/release/v20.19.5/node-v20.19.5-headers.tar.gz
-npm error gyp ERR! stack at go (/usr/lib/node_modules/npm/node_modules/node-gyp/lib/install.js:223:21)
-npm error gyp ERR! stack at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
-npm error gyp ERR! stack at async install (/usr/lib/node_modules/npm/node_modules/node-gyp/lib/install.js:63:18)
-npm error gyp ERR! stack at async getNodeDir (/usr/lib/node_modules/npm/node_modules/node-gyp/lib/configure.js:79:7)
-npm error gyp ERR! stack at async run (/usr/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js:81:18)
-npm error gyp ERR! System Linux 5.14.0-611.13.1.el9_7.x86_64
-npm error gyp ERR! command "/usr/bin/node" "/usr/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js" "rebuild" "--release"
-npm error gyp ERR! cwd /opt/palo-changelogs/node_modules/better-sqlite3
-npm error gyp ERR! node -v v20.19.5
-npm error gyp ERR! node-gyp -v v10.1.0
-npm error gyp ERR! not ok
-npm error A complete log of this run can be found in: /opt/palo-changelogs/.npm/_logs/2025-12-24T17_35_54_286Z-debug-0.log
+0 verbose cli /usr/bin/node /bin/npm
+1 info using npm@10.8.2
+2 info using node@v18.20.8
+3 silly config load:file:/usr/lib/node_modules/npm/npmrc
+4 silly config load:file:/opt/palo-changelogs/.npmrc
+5 silly config load:file:/etc/npmrc
+6 verbose title npm rebuild better-sqlite3
+7 verbose argv "rebuild" "better-sqlite3"
+8 verbose logfile logs-max:10 dir:/opt/palo-changelogs/.npm/_logs/2026-01-10T17_20_41_833Z-
+9 verbose logfile /opt/palo-changelogs/.npm/_logs/2026-01-10T17_20_41_833Z-debug-0.log
+10 silly packumentCache heap:2197815296 maxSize:549453824 maxEntrySize:274726912
+11 silly logfile done cleaning log files
+12 info run better-sqlite3@11.10.0 install node_modules/better-sqlite3 prebuild-install || node-gyp rebuild --release
+13 info run better-sqlite3@11.10.0 install { code: 1, signal: null }
+14 verbose stack Error: command failed
+14 verbose stack     at promiseSpawn (/usr/lib/node_modules/npm/node_modules/@npmcli/promise-spawn/lib/index.js:22:22)
+14 verbose stack     at spawnWithShell (/usr/lib/node_modules/npm/node_modules/@npmcli/promise-spawn/lib/index.js:124:10)
+14 verbose stack     at promiseSpawn (/usr/lib/node_modules/npm/node_modules/@npmcli/promise-spawn/lib/index.js:12:12)
+14 verbose stack     at runScriptPkg (/usr/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/run-script-pkg.js:77:13)
+14 verbose stack     at runScript (/usr/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/run-script.js:9:12)
+14 verbose stack     at /usr/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/rebuild.js:329:17
+14 verbose stack     at run (/usr/lib/node_modules/npm/node_modules/promise-call-limit/dist/commonjs/index.js:67:22)
+14 verbose stack     at /usr/lib/node_modules/npm/node_modules/promise-call-limit/dist/commonjs/index.js:84:9
+14 verbose stack     at new Promise (<anonymous>)
+14 verbose stack     at callLimit (/usr/lib/node_modules/npm/node_modules/promise-call-limit/dist/commonjs/index.js:35:69)
+15 verbose pkgid better-sqlite3@11.10.0
+16 error code 1
+17 error path /opt/palo-changelogs/node_modules/better-sqlite3
+18 error command failed
+19 error command sh -c prebuild-install || node-gyp rebuild --release
+20 error sh: line 1: /opt/palo-changelogs/node_modules/.bin/prebuild-install: Operation not permitted
+20 error gyp info it worked if it ends with ok
+20 error gyp info using node-gyp@10.1.0
+20 error gyp info using node@18.20.8 | linux | x64
+20 error gyp info find Python using Python version 3.9.23 found at "/usr/bin/python3"
+20 error gyp http GET https://nodejs.org/download/release/v18.20.8/node-v18.20.8-headers.tar.gz
+20 error gyp http 401 http://coloproxy04/B0002D0000N0002N0001F0000S0000R0004/10.100.5.210/http://nodejs.org/download/release/v18.20.8/node-v18.20.8-headers.tar.gz
+20 error gyp WARN install got an error, rolling back install
+20 error gyp ERR! configure error 
+20 error gyp ERR! stack Error: 401 response downloading https://nodejs.org/download/release/v18.20.8/node-v18.20.8-headers.tar.gz
+20 error gyp ERR! stack at go (/usr/lib/node_modules/npm/node_modules/node-gyp/lib/install.js:223:21)
+20 error gyp ERR! stack at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+20 error gyp ERR! stack at async install (/usr/lib/node_modules/npm/node_modules/node-gyp/lib/install.js:63:18)
+20 error gyp ERR! stack at async getNodeDir (/usr/lib/node_modules/npm/node_modules/node-gyp/lib/configure.js:79:7)
+20 error gyp ERR! stack at async run (/usr/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js:81:18)
+20 error gyp ERR! System Linux 5.14.0-611.13.1.el9_7.x86_64
+20 error gyp ERR! command "/usr/bin/node" "/usr/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js" "rebuild" "--release"
+20 error gyp ERR! cwd /opt/palo-changelogs/node_modules/better-sqlite3
+20 error gyp ERR! node -v v18.20.8
+20 error gyp ERR! node-gyp -v v10.1.0
+20 error gyp ERR! not ok
+21 silly unfinished npm timer build 1768065643553
+22 silly unfinished npm timer build:deps 1768065643554
+23 silly unfinished npm timer build:run:install 1768065643555
+24 silly unfinished npm timer build:run:install:node_modules/better-sqlite3 1768065643556
+25 verbose cwd /opt/palo-changelogs
+26 verbose os Linux 5.14.0-611.13.1.el9_7.x86_64
+27 verbose node v18.20.8
+28 verbose npm  v10.8.2
+29 verbose exit 1
+30 verbose code 1
+31 error A complete log of this run can be found in: /opt/palo-changelogs/.npm/_logs/2026-01-10T17_20_41_833Z-debug-0.log
