@@ -38,7 +38,7 @@ dnf update -y
 echo ""
 echo "Step 2: Installing prerequisites..."
 echo "Installing base packages..."
-dnf install -y git curl wget tar gzip python3 make gcc-c++ nginx openssl node-gyp
+dnf install -y git curl wget tar gzip python3 make gcc-c++ nginx openssl
 
 echo "Installing SQLite development headers (required for better-sqlite3)..."
 SQLITE_DEVEL_INSTALLED=false
@@ -91,6 +91,17 @@ ACTUAL_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
 if [ "$ACTUAL_VERSION" -lt "$NODE_VERSION" ]; then
     echo "WARNING: Node.js version is still below ${NODE_VERSION}.x. Current version: $(node -v)"
     echo "You may need to restart the shell or check your PATH."
+fi
+
+echo ""
+echo "Installing node-gyp globally (required for building native modules)..."
+if command -v npm &> /dev/null; then
+    npm install -g node-gyp 2>/dev/null || {
+        echo "⚠ Warning: Failed to install node-gyp globally"
+        echo "   Native modules may still build successfully as npm will install node-gyp locally when needed"
+    }
+else
+    echo "⚠ Warning: npm not found, skipping node-gyp installation"
 fi
 
 echo ""
