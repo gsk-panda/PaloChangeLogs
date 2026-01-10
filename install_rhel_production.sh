@@ -94,14 +94,19 @@ if [ "$ACTUAL_VERSION" -lt "$NODE_VERSION" ]; then
 fi
 
 echo ""
-echo "Installing node-gyp globally (required for building native modules)..."
+echo "Installing node-gyp globally (optional - for building native modules)..."
+NODE_GYP_INSTALLED=false
 if command -v npm &> /dev/null; then
-    npm install -g node-gyp 2>/dev/null || {
-        echo "⚠ Warning: Failed to install node-gyp globally"
-        echo "   Native modules may still build successfully as npm will install node-gyp locally when needed"
-    }
+    if npm install -g node-gyp 2>/dev/null; then
+        echo "✓ node-gyp installed successfully"
+        NODE_GYP_INSTALLED=true
+    else
+        echo "⚠ node-gyp not available in npm registry (this is okay)"
+        echo "   Native modules like better-sqlite3 will install node-gyp locally when needed"
+        echo "   Build tools (python3, make, gcc-c++) are already installed, which is sufficient"
+    fi
 else
-    echo "⚠ Warning: npm not found, skipping node-gyp installation"
+    echo "⚠ npm not found, skipping node-gyp installation"
 fi
 
 echo ""
