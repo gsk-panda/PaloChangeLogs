@@ -14,17 +14,67 @@ PANORAMA_API_KEY="${PANORAMA_API_KEY:-}"
 NGINX_LOCATION_PATH="${NGINX_LOCATION_PATH:-/changelogs}"  # Base path for the app
 BACKEND_PORT="${BACKEND_PORT:-3001}"  # Backend API port
 
+# Offline installation support
+OFFLINE_MODE=false
+NODE_SETUP_SCRIPT=""
+REPO_DIR=""
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --offline)
+            OFFLINE_MODE=true
+            shift
+            ;;
+        --node-setup)
+            NODE_SETUP_SCRIPT="$2"
+            shift 2
+            ;;
+        --repo-dir)
+            REPO_DIR="$2"
+            shift 2
+            ;;
+        --help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --offline              Enable offline installation mode"
+            echo "  --node-setup PATH      Path to local Node.js setup script"
+            echo "  --repo-dir PATH        Path to local repository directory"
+            echo "  --help                 Show this help message"
+            echo ""
+            echo "Offline Installation Example:"
+            echo "  $0 --offline --node-setup /tmp/node-setup-20.sh --repo-dir /tmp/PaloChangeLogs"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 echo "=========================================="
 echo "Palo ChangeLogs Production Installation"
 echo "RHEL 9.7 with NGINX"
 echo "=========================================="
 echo ""
+if [ "$OFFLINE_MODE" = true ]; then
+    echo "⚠ OFFLINE MODE ENABLED"
+    echo ""
+fi
 echo "Configuration:"
 echo "  Installation directory: $INSTALL_DIR"
 echo "  Service user: $SERVICE_USER"
 echo "  NGINX location path: $NGINX_LOCATION_PATH"
 echo "  Backend port: $BACKEND_PORT"
 echo "  Panorama host: $PANORAMA_HOST"
+if [ "$OFFLINE_MODE" = true ]; then
+    echo "  Offline mode: Enabled"
+    [ -n "$NODE_SETUP_SCRIPT" ] && echo "  Node setup script: $NODE_SETUP_SCRIPT"
+    [ -n "$REPO_DIR" ] && echo "  Repository directory: $REPO_DIR"
+fi
 echo ""
 
 if [ "$EUID" -ne 0 ]; then 
@@ -76,7 +126,25 @@ if [ -z "$INSTALLED_VERSION" ] || [ "$INSTALLED_VERSION" -lt "$NODE_VERSION" ]; 
     else
         echo "Node.js not found. Installing Node.js ${NODE_VERSION}.x..."
     fi
-    curl -fsSL https://rpm.nodesource.com/setup_${NODE_VERSION}.x | bash -
+    
+    if [ "$OFFLINE_MODE" = true ] && [ -n "$NODE_SETUP_SCRIPT" ]; then
+        if [ -f "$NODE_SETUP_SCRIPT" ]; then
+            echo "Using local Node.js setup script: $NODE_SETUP_SCRIPT"
+            bash "$NODE_SETUP_SCRIPT"
+        else
+            echo "⚠ Error: Node.js setup script not found at: $NODE_SETUP_SCRIPT"
+            echo "   Please provide a valid path with --node-setup"
+            exit 1
+        fi
+    else
+        if [ "$OFFLINE_MODE" = true ]; then
+            echo "⚠ Error: Offline mode enabled but no Node.js setup script provided"
+            echo "   Use --node-setup PATH to specify local script"
+            echo "   Or download it using: download-for-offline-install.sh"
+            exit 1
+        fi
+        curl -fsSL https://rpm.nodesource.com/setup_${NODE_VERSION}.x | bash -
+    fi
     dnf install -y nodejs --allowerasing
     hash -r
 else
@@ -123,14 +191,44 @@ echo "Step 6: Creating installation directory..."
 mkdir -p "$INSTALL_DIR"
 
 echo ""
-echo "Step 7: Cloning repository..."
-if [ -d "$INSTALL_DIR/.git" ]; then
-    echo "Repository already exists. Updating..."
-    cd "$INSTALL_DIR"
-    git fetch origin
-    git checkout feature/database-storage
-    git pull origin feature/database-storage
+echo "Step 7: Setting up repository..."
+if [ "$OFFLINE_MODE" = true ] && [ -n "$REPO_DIR" ]; then
+    if [ -d "$REPO_DIR" ]; then
+        echo "Using local repository directory: $REPO_DIR"
+        if [ -d "$INSTALL_DIR/.git" ]; then
+            echo "Installation directory already exists. Removing old installation..."
+            rm -rf "$INSTALL_DIR"
+        fi
+        cp -r "$REPO_DIR" "$INSTALL_DIR"
+        cd "$INSTALL_DIR"
+        if [ -d ".git" ]; then
+            git checkout feature/database-storage 2>/dev/null || echo "Note: Already on correct branch or not a git repo"
+        fi
+        echo "✓ Repository copied from local directory"
+    else
+        echo "⚠ Error: Repository directory not found at: $REPO_DIR"
+        echo "   Please provide a valid path with --repo-dir"
+        exit 1
+    fi
+elif [ -d "$INSTALL_DIR/.git" ]; then
+    if [ "$OFFLINE_MODE" = true ]; then
+        echo "Repository already exists at $INSTALL_DIR (skipping update in offline mode)"
+        cd "$INSTALL_DIR"
+    else
+        echo "Repository already exists. Updating..."
+        cd "$INSTALL_DIR"
+        git fetch origin
+        git checkout feature/database-storage
+        git pull origin feature/database-storage
+    fi
 else
+    if [ "$OFFLINE_MODE" = true ]; then
+        echo "⚠ Error: Offline mode enabled but no repository directory provided"
+        echo "   Use --repo-dir PATH to specify local repository"
+        echo "   Or download it using: download-for-offline-install.sh"
+        exit 1
+    fi
+    echo "Cloning repository from remote..."
     git clone "$REPO_URL" "$INSTALL_DIR"
     cd "$INSTALL_DIR"
     git checkout feature/database-storage
