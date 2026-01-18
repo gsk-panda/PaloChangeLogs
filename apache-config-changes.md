@@ -34,8 +34,8 @@ Alias /changes /var/www/palochangelogs
 
 # Panorama API Proxy - Global (if not already configured)
 <Location /panorama-proxy>
-    ProxyPass http://localhost:3001/panorama-proxy
-    ProxyPassReverse http://localhost:3001/panorama-proxy
+    ProxyPass http://localhost:3002/panorama-proxy
+    ProxyPassReverse http://localhost:3002/panorama-proxy
     ProxyPreserveHost On
     
     Header set Access-Control-Allow-Origin "*"
@@ -45,8 +45,8 @@ Alias /changes /var/www/palochangelogs
 
 # Panorama API Proxy - For /changes path
 <Location /changes/panorama-proxy>
-    ProxyPass http://localhost:3001/panorama-proxy
-    ProxyPassReverse http://localhost:3001/panorama-proxy
+    ProxyPass http://localhost:3002/panorama-proxy
+    ProxyPassReverse http://localhost:3002/panorama-proxy
     ProxyPreserveHost On
     
     Header set Access-Control-Allow-Origin "*"
@@ -97,8 +97,8 @@ Create a new file `/etc/httpd/conf.d/palochangelogs.conf` with the following con
     </Directory>
 
     <Location /panorama-proxy>
-        ProxyPass http://localhost:3001/panorama-proxy
-        ProxyPassReverse http://localhost:3001/panorama-proxy
+        ProxyPass http://localhost:3002/panorama-proxy
+        ProxyPassReverse http://localhost:3002/panorama-proxy
         ProxyPreserveHost On
         
         Header set Access-Control-Allow-Origin "*"
@@ -107,8 +107,8 @@ Create a new file `/etc/httpd/conf.d/palochangelogs.conf` with the following con
     </Location>
 
     <Location /changes/panorama-proxy>
-        ProxyPass http://localhost:3001/panorama-proxy
-        ProxyPassReverse http://localhost:3001/panorama-proxy
+        ProxyPass http://localhost:3002/panorama-proxy
+        ProxyPassReverse http://localhost:3002/panorama-proxy
         ProxyPreserveHost On
         
         Header set Access-Control-Allow-Origin "*"
@@ -153,7 +153,7 @@ Before adding this configuration, ensure:
    ```bash
    systemctl status palochangelogs-api-proxy
    ```
-   The proxy service should be listening on `localhost:3001`
+   The proxy service should be listening on `localhost:3002`
 
 3. **Log directories exist:**
    ```bash
@@ -190,7 +190,7 @@ Before adding this configuration, ensure:
 
 - **SSL Certificates:** If you're using the same SSL certificate for both applications, you don't need to add separate SSL configuration. The existing certificate configuration will work for both `/logs` and `/changes`.
 
-- **Port Conflicts:** The API proxy runs on port 3001. Ensure this port is not used by the PanoVision application (which likely uses a different port).
+- **Port Conflicts:** The API proxy runs on port 3002. Ensure this port is not used by other applications.
 
 - **Path Conflicts:** The `/panorama-proxy` location is shared. If PanoVision already uses this path, you may need to adjust the configuration to avoid conflicts. The `/changes/panorama-proxy` location is specific to PaloChangeLogs.
 
@@ -219,7 +219,7 @@ If the application doesn't load:
 
 4. **Test proxy connectivity:**
    ```bash
-   curl http://localhost:3001/panorama-proxy/api/?type=op&cmd=<show><system><info></info></system></show>
+   curl http://localhost:3002/panorama-proxy/api/?type=op&cmd=<show><system><info></info></system></show>
    ```
 
 5. **Verify Apache modules are loaded:**
