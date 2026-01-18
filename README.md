@@ -113,7 +113,7 @@ A comprehensive web application for viewing, searching, and analyzing Palo Alto 
 The easiest way to install PaloChangeLogs is using the provided installation script:
 
 ```bash
-git clone https://github.com/your-org/PaloChangeLogs.git
+git clone https://github.com/gsk-panda/PaloChangeLogs.git
 cd PaloChangeLogs
 sudo ./install.sh
 ```
@@ -343,7 +343,7 @@ This script:
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/PaloChangeLogs.git
+git clone https://github.com/gsk-panda/PaloChangeLogs.git
 cd PaloChangeLogs
 
 # Install dependencies
