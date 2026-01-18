@@ -1,0 +1,198 @@
+#!/bin/bash
+
+set -e
+
+REPO_URL="https://github.com/your-org/PaloChangeLogs.git"
+INSTALL_DIR="/opt/palo-changelogs"
+SERVICE_USER="palo-changelogs"
+NODE_VERSION="20"
+PANORAMA_HOST="panorama.example.com"
+PANORAMA_API_KEY=""
+
+echo "=========================================="
+echo "Palo ChangeLogs Installation Script"
+echo "RHEL 9.7 Installation"
+echo "=========================================="
+
+if [ "$EUID" -ne 0 ]; then 
+    echo "Error: This script must be run as root or with sudo"
+    exit 1
+fi
+
+echo ""
+echo "Step 1: Updating system packages..."
+dnf update -y
+
+echo ""
+echo "Step 2: Installing prerequisites..."
+dnf install -y git curl wget tar gzip
+
+echo ""
+echo "Step 3: Installing Node.js ${NODE_VERSION}.x..."
+INSTALLED_VERSION=""
+if command -v node &> /dev/null; then
+    INSTALLED_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+    echo "Current Node.js version: $(node -v)"
+fi
+
+if [ -z "$INSTALLED_VERSION" ] || [ "$INSTALLED_VERSION" -lt "$NODE_VERSION" ]; then
+    if [ -n "$INSTALLED_VERSION" ]; then
+        echo "Node.js version $INSTALLED_VERSION detected. Upgrading to ${NODE_VERSION}.x..."
+    else
+        echo "Node.js not found. Installing Node.js ${NODE_VERSION}.x..."
+    fi
+    curl -fsSL https://rpm.nodesource.com/setup_${NODE_VERSION}.x | bash -
+    dnf install -y nodejs --allowerasing
+    hash -r
+else
+    echo "Node.js $(node -v) is already installed (meets requirement of ${NODE_VERSION}.x+)"
+fi
+
+echo ""
+echo "Step 4: Verifying Node.js and npm installation..."
+node -v
+npm -v
+ACTUAL_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$ACTUAL_VERSION" -lt "$NODE_VERSION" ]; then
+    echo "WARNING: Node.js version is still below ${NODE_VERSION}.x. Current version: $(node -v)"
+    echo "You may need to restart the shell or check your PATH."
+fi
+
+echo ""
+echo "Step 5: Creating service user..."
+if ! id "$SERVICE_USER" &>/dev/null; then
+    useradd -r -s /bin/bash -d "$INSTALL_DIR" -m "$SERVICE_USER"
+    echo "User $SERVICE_USER created"
+else
+    echo "User $SERVICE_USER already exists"
+fi
+
+echo ""
+echo "Step 6: Creating installation directory..."
+mkdir -p "$INSTALL_DIR"
+
+echo ""
+echo "Step 7: Cloning repository..."
+if [ -d "$INSTALL_DIR/.git" ]; then
+    echo "Repository already exists. Updating..."
+    cd "$INSTALL_DIR"
+    git pull
+else
+    git clone "$REPO_URL" "$INSTALL_DIR"
+fi
+
+echo ""
+echo "Step 7a: Setting ownership of installation directory..."
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+
+echo ""
+echo "Step 8: Installing npm dependencies..."
+cd "$INSTALL_DIR"
+sudo -u "$SERVICE_USER" npm install
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+
+echo ""
+echo "Step 9: Configuring Panorama and API keys..."
+ENV_FILE="$INSTALL_DIR/.env.local"
+
+if [ ! -f "$ENV_FILE" ]; then
+    echo ""
+    echo "Using default Panorama configuration..."
+    echo "  PANORAMA_HOST=$PANORAMA_HOST"
+    echo ""
+    
+    read -p "Enter Gemini API key (press Enter to skip and configure later): " GEMINI_API_KEY
+    
+    cat > "$ENV_FILE" << EOF
+PANORAMA_HOST=$PANORAMA_HOST
+PANORAMA_API_KEY=$PANORAMA_API_KEY
+API_KEY=${GEMINI_API_KEY:-your_gemini_api_key_here}
+EOF
+    chown "$SERVICE_USER:$SERVICE_USER" "$ENV_FILE"
+    chmod 600 "$ENV_FILE"
+    echo "Created $ENV_FILE with configuration"
+else
+    echo "Environment file already exists at $ENV_FILE"
+    echo "Skipping configuration. Edit the file manually if needed."
+fi
+
+echo ""
+echo "Step 10: Building application..."
+cd "$INSTALL_DIR"
+sudo -u "$SERVICE_USER" env NODE_OPTIONS="--openssl-legacy-provider" npm run build
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+
+echo ""
+echo "Step 11: Creating systemd service..."
+WRAPPER_SCRIPT="$INSTALL_DIR/start-service.sh"
+cat > "$WRAPPER_SCRIPT" << 'WRAPPER_EOF'
+#!/bin/bash
+cd /opt/palo-changelogs
+source .env.local
+export PANORAMA_HOST
+export PANORAMA_API_KEY
+export API_KEY
+npm run preview
+WRAPPER_EOF
+chmod +x "$WRAPPER_SCRIPT"
+chown "$SERVICE_USER:$SERVICE_USER" "$WRAPPER_SCRIPT"
+
+SERVICE_FILE="/etc/systemd/system/palo-changelogs.service"
+cat > "$SERVICE_FILE" << EOF
+[Unit]
+Description=Palo ChangeLogs Application
+After=network.target
+
+[Service]
+Type=simple
+User=$SERVICE_USER
+WorkingDirectory=$INSTALL_DIR
+Environment="NODE_ENV=production"
+ExecStart=$WRAPPER_SCRIPT
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+
+echo ""
+echo "=========================================="
+echo "Installation Complete!"
+echo "=========================================="
+echo ""
+echo "Installation directory: $INSTALL_DIR"
+echo "Service user: $SERVICE_USER"
+echo ""
+echo "Next steps:"
+if [ ! -f "$ENV_FILE" ]; then
+    echo "1. Edit $ENV_FILE and configure:"
+    echo "   - PANORAMA_HOST=your_panorama_host"
+    echo "   - PANORAMA_API_KEY=your_panorama_api_key"
+    echo "   - API_KEY=your_gemini_api_key"
+    echo ""
+fi
+echo "2. Start the service:"
+echo "   systemctl start palo-changelogs"
+echo ""
+echo "3. Enable the service to start on boot:"
+echo "   systemctl enable palo-changelogs"
+echo ""
+echo "4. Check service status:"
+echo "   systemctl status palo-changelogs"
+echo ""
+echo "5. View logs:"
+echo "   journalctl -u palo-changelogs -f"
+echo ""
+echo "6. For development mode, run as $SERVICE_USER:"
+echo "   sudo -u $SERVICE_USER bash -c 'cd $INSTALL_DIR && npm run dev'"
+echo ""
+echo "The application will be available at:"
+echo "  - Production: http://localhost:4173 (or your server IP)"
+echo "  - Development: http://localhost:5173 (or your server IP)"
+echo ""
+

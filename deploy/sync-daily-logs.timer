@@ -1,0 +1,11 @@
+[Unit]
+Description=Run PaloChangeLogs daily log sync
+Requires=palochangelogs-sync.service
+
+[Timer]
+OnCalendar=daily
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

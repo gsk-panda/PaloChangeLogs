@@ -1,0 +1,14 @@
+[Unit]
+Description=PaloChangeLogs Daily Log Sync Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=palochangelogs
+WorkingDirectory=/opt/PaloChangeLogs
+ExecStart=/usr/bin/node /opt/PaloChangeLogs/deploy/sync-daily-logs.js
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
