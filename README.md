@@ -108,9 +108,23 @@ A comprehensive web application for viewing, searching, and analyzing Palo Alto 
 
 ## Installation
 
-### Quick Start
+### Option 1: Docker Deployment (Recommended)
 
-The easiest way to install PaloChangeLogs is using the provided installation script:
+The easiest way to deploy PaloChangeLogs is using Docker:
+
+```bash
+git clone https://github.com/your-org/PaloChangeLogs.git
+cd PaloChangeLogs
+cp .env.example .env
+# Edit .env with your configuration
+docker-compose up -d
+```
+
+See [DOCKER.md](DOCKER.md) for complete Docker deployment instructions.
+
+### Option 2: Traditional Installation
+
+Install PaloChangeLogs using the provided installation script:
 
 ```bash
 git clone https://github.com/gsk-panda/PaloChangeLogs.git
@@ -129,9 +143,9 @@ The installation script will:
 8. Create systemd services
 9. Start all services
 
-### Installation Options
+### Traditional Installation Options
 
-#### Option 1: Main Installation Script (Recommended)
+#### Option 1: Main Installation Script
 
 ```bash
 sudo ./install.sh

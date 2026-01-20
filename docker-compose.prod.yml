@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  palochangelogs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_PANORAMA_SERVER: ${VITE_PANORAMA_SERVER}
+        VITE_OIDC_ENABLED: ${VITE_OIDC_ENABLED:-true}
+        VITE_AZURE_CLIENT_ID: ${VITE_AZURE_CLIENT_ID}
+        VITE_AZURE_AUTHORITY: ${VITE_AZURE_AUTHORITY}
+        VITE_AZURE_REDIRECT_URI: ${VITE_AZURE_REDIRECT_URI}
+    container_name: palochangelogs
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      - PANORAMA_API_KEY=${PANORAMA_API_KEY}
+      - PANORAMA_URL=${PANORAMA_URL}
+    volumes:
+      - palochangelogs-data:/app/data
+      - palochangelogs-config:/app/config
+    networks:
+      - palochangelogs-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/panorama-proxy/api/db/stats', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:alpine
+    container_name: palochangelogs-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - palochangelogs-data:/usr/share/nginx/html/changes:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - palochangelogs
+    networks:
+      - palochangelogs-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  sync:
+    build:
+      context: .
+      dockerfile: Dockerfile.sync
+    container_name: palochangelogs-sync
+    restart: unless-stopped
+    environment:
+      - PANORAMA_API_KEY=${PANORAMA_API_KEY}
+      - PANORAMA_URL=${PANORAMA_URL}
+      - PROXY_URL=http://palochangelogs:3002/panorama-proxy
+    volumes:
+      - palochangelogs-data:/app/data
+    depends_on:
+      - palochangelogs
+    networks:
+      - palochangelogs-network
+    # Use cron-like scheduling (runs daily at 2 AM)
+    command: sh -c "while true; do sleep 86400; node /app/deploy/sync-daily-logs.js; done"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  palochangelogs-data:
+    driver: local
+  palochangelogs-config:
+    driver: local
+
+networks:
+  palochangelogs-network:
+    driver: bridge
