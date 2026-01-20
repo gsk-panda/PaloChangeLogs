@@ -46,18 +46,21 @@ cp .env.example .env
 Edit `.env` with your configuration:
 
 ```env
-# Panorama Configuration
+# Panorama Configuration (REQUIRED)
 PANORAMA_URL=https://panorama.example.com
 PANORAMA_API_KEY=your_actual_api_key_here
 
-# Frontend Build Configuration
+# Frontend Build Configuration (REQUIRED)
 VITE_PANORAMA_SERVER=https://panorama.example.com
-VITE_OIDC_ENABLED=true
 
-# OIDC Authentication (if enabled)
-VITE_AZURE_CLIENT_ID=your_azure_client_id
-VITE_AZURE_AUTHORITY=https://login.microsoftonline.com/your-tenant-id
-VITE_AZURE_REDIRECT_URI=https://your-domain.com/changes
+# OIDC Authentication (OPTIONAL - set to false to disable)
+# The application works without OIDC. Only configure if you need authentication.
+VITE_OIDC_ENABLED=false
+
+# If OIDC is enabled (VITE_OIDC_ENABLED=true), configure these:
+# VITE_AZURE_CLIENT_ID=your_azure_client_id
+# VITE_AZURE_AUTHORITY=https://login.microsoftonline.com/your-tenant-id
+# VITE_AZURE_REDIRECT_URI=https://your-domain.com/changes
 ```
 
 ### 3. Build and Start
@@ -82,10 +85,40 @@ Once started, access the application at:
 
 #### Required Variables
 
-- `PANORAMA_URL`: Panorama instance URL (e.g., `https://panorama.example.com`)
-- `PANORAMA_API_KEY`: Panorama API key
+These variables **must** be configured for the application to function:
 
-#### Optional Variables
+- **`PANORAMA_URL`**: Panorama instance URL or IP address
+  - Example: `https://panorama.example.com` or `192.168.1.10`
+  - Used by the API proxy to connect to Panorama
+
+- **`PANORAMA_API_KEY`**: Panorama API key with read permissions
+  - Generated from Panorama web interface
+  - Required for fetching change logs from Panorama
+
+- **`VITE_PANORAMA_SERVER`**: Panorama server URL (same as `PANORAMA_URL`)
+  - Used by the frontend to display the connected server
+  - Must match `PANORAMA_URL` value
+
+#### Optional Variables (OIDC Authentication)
+
+**OIDC authentication is completely optional.** The application works without it. If you don't need authentication, you can skip all OIDC variables.
+
+To enable OIDC authentication with Azure AD/Entra ID:
+
+- **`VITE_OIDC_ENABLED`**: Enable/disable OIDC authentication
+  - Set to `false` (default) to disable OIDC - **application works without authentication**
+  - Set to `true` to enable OIDC authentication
+  - **Default**: `false` (OIDC disabled)
+
+If `VITE_OIDC_ENABLED=true`, you must also configure:
+
+- **`VITE_AZURE_CLIENT_ID`**: Azure App Registration Client ID
+- **`VITE_AZURE_AUTHORITY`**: Azure AD Authority URL
+  - Format: `https://login.microsoftonline.com/{tenant-id}`
+- **`VITE_AZURE_REDIRECT_URI`**: OIDC redirect URI
+  - Format: `https://your-domain.com/changes` or `http://localhost/changes` for local testing
+
+**Important**: If OIDC is disabled (`VITE_OIDC_ENABLED=false`), you can omit all OIDC-related variables. The application will function normally without authentication.
 
 - `VITE_OIDC_ENABLED`: Enable OIDC authentication (`true` or `false`, default: `false`)
 - `VITE_AZURE_CLIENT_ID`: Azure AD Client ID

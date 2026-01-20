@@ -71,10 +71,11 @@ VITE_OIDC_ENABLED=false
 ```
 
 **Important Notes:**
-- Replace `panorama.example.com` with your actual Panorama URL or IP
-- Replace `your_actual_panorama_api_key_here` with your real API key
-- If you don't have OIDC set up, keep `VITE_OIDC_ENABLED=false`
-- For local testing, you can use `http://localhost/changes` as the redirect URI
+- **Required**: Replace `panorama.example.com` with your actual Panorama URL or IP
+- **Required**: Replace `your_actual_panorama_api_key_here` with your real API key
+- **OIDC is Optional**: If you don't have OIDC set up, keep `VITE_OIDC_ENABLED=false` - the application will work without authentication
+- **OIDC Variables**: Only configure `VITE_AZURE_CLIENT_ID`, `VITE_AZURE_AUTHORITY`, and `VITE_AZURE_REDIRECT_URI` if you're enabling OIDC (`VITE_OIDC_ENABLED=true`)
+- For local testing without OIDC, you can leave all OIDC variables unset or set to empty values
 
 ### Step 4: Build Docker Images
 

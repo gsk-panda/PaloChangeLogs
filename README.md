@@ -125,14 +125,22 @@ Detailed view of configuration changes with before/after comparison.
 The easiest way to deploy PaloChangeLogs is using Docker:
 
 ```bash
-git clone https://github.com/your-org/PaloChangeLogs.git
+git clone https://github.com/gsk-panda/PaloChangeLogs.git
 cd PaloChangeLogs
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your configuration (see Environment Variables section below)
 docker-compose up -d
 ```
 
-See [DOCKER.md](DOCKER.md) for complete Docker deployment instructions.
+**Required Configuration:**
+- `PANORAMA_URL` - Your Panorama server URL or IP
+- `PANORAMA_API_KEY` - Your Panorama API key
+- `VITE_PANORAMA_SERVER` - Same as `PANORAMA_URL`
+
+**Optional Configuration:**
+- OIDC authentication (can be disabled by setting `VITE_OIDC_ENABLED=false`)
+
+See [INSTALL-DOCKER.md](INSTALL-DOCKER.md) for complete step-by-step Docker installation instructions, or [DOCKER.md](DOCKER.md) for Docker deployment details.
 
 ### Option 2: Traditional Installation
 
@@ -215,7 +223,9 @@ During installation, you'll be prompted for:
 
 ### OIDC Authentication (Optional)
 
-If OIDC is enabled, configure Azure AD/Entra ID:
+**OIDC authentication is completely optional.** The application works without it. You can skip this section if you don't need authentication.
+
+If you want to enable OIDC authentication, configure Azure AD/Entra ID:
 
 1. **Azure App Registration**:
    - Create an app registration in Azure AD
@@ -239,13 +249,48 @@ If using NGINX, the `install2.sh` script handles configuration automatically.
 
 ### Environment Variables
 
-Key environment variables (set during installation):
+Environment variables are configured in the `.env` file (Docker) or during installation (traditional).
 
-- `VITE_PANORAMA_SERVER`: Panorama server URL
-- `VITE_OIDC_ENABLED`: Enable/disable OIDC (`true`/`false`)
-- `VITE_AZURE_CLIENT_ID`: Azure AD Client ID
-- `VITE_AZURE_AUTHORITY`: Azure AD Authority URL
-- `VITE_AZURE_REDIRECT_URI`: OIDC redirect URI
+**Quick Reference:**
+- **Required**: `PANORAMA_URL`, `PANORAMA_API_KEY`, `VITE_PANORAMA_SERVER`
+- **Optional**: All OIDC variables (application works without authentication)
+
+#### Required Variables
+
+These variables **must** be set for the application to function:
+
+- **`PANORAMA_URL`**: Panorama server URL or IP address
+  - Example: `https://panorama.example.com` or `192.168.1.10`
+  - Used by the API proxy to connect to Panorama
+
+- **`PANORAMA_API_KEY`**: Panorama API key with read permissions
+  - Generated from Panorama web interface
+  - Required for fetching change logs from Panorama
+
+- **`VITE_PANORAMA_SERVER`**: Panorama server URL (same as `PANORAMA_URL`)
+  - Used by the frontend to display the connected server
+  - Must match `PANORAMA_URL` value
+
+#### Optional Variables (OIDC Authentication)
+
+**OIDC authentication is completely optional.** The application works without it.
+
+If you want to enable OIDC authentication with Azure AD/Entra ID:
+
+- **`VITE_OIDC_ENABLED`**: Enable/disable OIDC authentication
+  - Set to `false` (default) to disable OIDC
+  - Set to `true` to enable OIDC authentication
+  - **Default**: `false` (OIDC disabled)
+
+If `VITE_OIDC_ENABLED=true`, you must also configure:
+
+- **`VITE_AZURE_CLIENT_ID`**: Azure App Registration Client ID
+- **`VITE_AZURE_AUTHORITY`**: Azure AD Authority URL
+  - Format: `https://login.microsoftonline.com/{tenant-id}`
+- **`VITE_AZURE_REDIRECT_URI`**: OIDC redirect URI
+  - Format: `https://your-domain.com/changes` or `http://localhost/changes` for local testing
+
+**Note**: If OIDC is disabled (`VITE_OIDC_ENABLED=false`), the application will work without authentication. All OIDC-related variables can be omitted or left empty.
 
 ## Usage
 
