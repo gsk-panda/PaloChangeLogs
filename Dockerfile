@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source files
 COPY . .
@@ -39,15 +39,15 @@ WORKDIR /app
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
-# Create app user
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
+# Create app user (check if group/user exists first)
+RUN (getent group 1000 || addgroup -g 1000 appuser) && \
+    (getent passwd 1000 || adduser -D -u 1000 -G appuser appuser) || true
 
 # Copy package files
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copy built frontend from builder stage
 COPY --from=builder /app/dist ./dist
