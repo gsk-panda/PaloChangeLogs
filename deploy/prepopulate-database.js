@@ -8,8 +8,8 @@ import { parse as parseUrl } from 'url';
 
 const db = sqlite3.verbose();
 
-const DB_PATH = path.join('/opt/PaloChangeLogs', 'data', 'palochangelogs.db');
-const PROXY_URL = 'http://localhost:3002/panorama-proxy';
+const DB_PATH = process.env.DB_PATH || path.join('/app', 'data', 'palochangelogs.db');
+const PROXY_URL = process.env.PROXY_URL || 'http://palochangelogs:3002/panorama-proxy';
 
 const DAYS_TO_PREPOPULATE = 90;
 const BATCH_SIZE_DAYS = 30;

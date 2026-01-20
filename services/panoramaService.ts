@@ -134,7 +134,7 @@ const parsePanoramaXML = (xmlText: string): ChangeRecord[] => {
       const afterPreview = entry.querySelector("after-change-detail")?.textContent || "";
 
       records.push({
-        id: `log-${seqno || index}-${Date.now()}`,
+        id: seqno ? `log-${seqno}` : `log-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         seqno: seqno,
         timestamp: timeStr,
         admin: admin,

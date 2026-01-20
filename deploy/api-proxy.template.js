@@ -136,6 +136,7 @@ const handleDatabaseSearch = (req, res, query) => {
             console.log(`[DB Search] Found ${rows.length} rows`);
             
             const logs = rows.map(row => ({
+                id: `db-${row.seqno}`,
                 seqno: row.seqno,
                 timestamp: row.timestamp,
                 admin: row.admin,
@@ -182,6 +183,7 @@ const handleDatabaseLogs = (req, res, query) => {
             }
             
             const logs = rows.map(row => ({
+                id: `db-${row.seqno}`,
                 seqno: row.seqno,
                 timestamp: row.timestamp,
                 admin: row.admin,

@@ -46,6 +46,18 @@ A comprehensive web application for viewing, searching, and analyzing Palo Alto 
 - **Real-time Updates**: Live statistics and change counts
 - **Activity Timeline**: Visual timeline showing changes over the past week
 
+## Screenshots
+
+### Dashboard View
+![Dashboard View](changes-screenshot-image1.jpg)
+
+The main dashboard showing the activity timeline, statistics, and change log entries.
+
+### Change Details View
+![Change Details View](changes-screenshot-image2.jpg)
+
+Detailed view of configuration changes with before/after comparison.
+
 ## Architecture
 
 ### Components

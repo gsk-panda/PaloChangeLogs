@@ -732,7 +732,7 @@ const AppContent: React.FC = () => {
                     </div>
                     <span className="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700/50">Last 7 Days</span>
                 </div>
-                <div className="flex-1 min-h-[250px]">
+                <div className="flex-1 min-h-[180px]">
                   {loading ? (
                     <div className="h-full bg-slate-800/50 rounded-lg animate-pulse flex items-center justify-center text-slate-500 text-sm">Loading visualization...</div>
                   ) : (
@@ -760,8 +760,8 @@ const AppContent: React.FC = () => {
                     </div>
                 </div>
                 {loading ? (
-                   <div className="space-y-4">
-                     {[1,2,3,4].map(i => <div key={i} className="h-10 bg-slate-800 rounded-lg animate-pulse"></div>)}
+                   <div className="space-y-2">
+                     {[1,2,3,4,5].map(i => <div key={i} className="h-8 bg-slate-800 rounded-lg animate-pulse"></div>)}
                    </div>
                 ) : adminStats.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-600 text-xs gap-2">
@@ -769,8 +769,8 @@ const AppContent: React.FC = () => {
                       No admin data available
                     </div>
                 ) : (
-                    <div className="space-y-2 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                        {adminStats.slice(0, 10).map((stat, idx) => (
+                    <div className="space-y-2 overflow-y-auto max-h-[200px] pr-2 custom-scrollbar">
+                        {adminStats.slice(0, 5).map((stat, idx) => (
                             <div key={stat.admin} className="flex items-center justify-between group p-2 hover:bg-slate-800 rounded-lg transition-colors cursor-default">
                                 <div className="flex items-center gap-3">
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${

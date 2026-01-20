@@ -25,7 +25,7 @@ const StatsChart: React.FC<StatsChartProps> = ({ data, selectedDate, onDateSelec
           data={data}
           onClick={handleClick}
           margin={{
-            top: 10,
+            top: 5,
             right: 10,
             left: -20,
             bottom: 0,
@@ -83,7 +83,7 @@ const StatsChart: React.FC<StatsChartProps> = ({ data, selectedDate, onDateSelec
               }
             }}
           />
-          <Bar dataKey="changes" radius={[4, 4, 0, 0]} barSize={40}>
+          <Bar dataKey="changes" radius={[4, 4, 0, 0]} barSize={30}>
             {data.map((entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
