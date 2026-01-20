@@ -11,7 +11,7 @@ const db = sqlite3.verbose();
 const DB_PATH = path.join('/opt/PaloChangeLogs', 'data', 'palochangelogs.db');
 const PROXY_URL = 'http://localhost:3002/panorama-proxy';
 
-const DAYS_TO_PREPOPULATE = 720;
+const DAYS_TO_PREPOPULATE = 90;
 const BATCH_SIZE_DAYS = 30;
 
 const parseEntries = (entries) => {
