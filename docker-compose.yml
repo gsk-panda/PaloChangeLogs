@@ -21,6 +21,7 @@ services:
       - palochangelogs-data:/app/data
       - palochangelogs-config:/app/config
       - palochangelogs-frontend:/app/frontend
+    user: "0:0"
     networks:
       - palochangelogs-network
     healthcheck:

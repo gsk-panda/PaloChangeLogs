@@ -36,12 +36,10 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install dumb-init and su-exec for proper signal handling and user switching
+RUN apk add --no-cache dumb-init su-exec
 
-# Create app user (check if group/user exists first)
-RUN (getent group 1000 || addgroup -g 1000 appuser) && \
-    (getent passwd 1000 || adduser -D -u 1000 -G appuser appuser) || true
+# Use existing node user (already has UID 1000)
 
 # Copy package files
 COPY package*.json ./
@@ -57,12 +55,12 @@ COPY deploy/api-proxy.template.js ./deploy/api-proxy.js
 COPY deploy/sync-daily-logs.js ./deploy/
 COPY deploy/prepopulate-database.js ./deploy/
 
-# Create necessary directories
+# Create necessary directories and set ownership
 RUN mkdir -p /app/data /app/config && \
-    chown -R appuser:appuser /app
+    chown -R node:node /app
 
 # Create entrypoint script
-RUN cat > /app/docker-entrypoint.sh << 'EOF' && chmod +x /app/docker-entrypoint.sh
+RUN cat > /app/docker-entrypoint.sh << 'EOF' && chmod +x /app/docker-entrypoint.sh && chown node:node /app/docker-entrypoint.sh
 #!/bin/sh
 set -e
 
@@ -95,8 +93,8 @@ echo "Starting PaloChangeLogs API Proxy..."
 exec node /app/deploy/api-proxy.js
 EOF
 
-# Switch to app user
-USER appuser
+# Don't switch user - will be handled by docker-compose
+# USER node
 
 # Expose API proxy port
 EXPOSE 3002
@@ -107,4 +105,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "-c", "cp -r /app/dist/* /app/frontend/ 2>/dev/null || true && /app/docker-entrypoint.sh"]
+CMD ["sh", "-c", "mkdir -p /app/frontend && cp -r /app/dist/* /app/frontend/ && chown -R node:node /app/frontend && echo \"Frontend files copied to /app/frontend\" && if [ -n \"$PANORAMA_API_KEY\" ]; then echo \"$PANORAMA_API_KEY\" > /app/config/panorama-api-key && chmod 600 /app/config/panorama-api-key && echo \"✓ Panorama API key configured\"; else echo \"⚠ Warning: PANORAMA_API_KEY not set\"; fi && if [ -n \"$PANORAMA_URL\" ]; then echo \"PANORAMA_URL=$PANORAMA_URL\" > /app/config/panorama-config && chmod 644 /app/config/panorama-config && echo \"✓ Panorama URL configured: $PANORAMA_URL\"; else echo \"⚠ Warning: PANORAMA_URL not set\"; fi && sed -i 's|/etc/palochangelogs|/app/config|g' /app/deploy/api-proxy.js && sed -i \"s|__PROJECT_DIR__|/app|g\" /app/deploy/api-proxy.js && mkdir -p /app/data && chown -R node:node /app/data /app/config && echo \"Starting PaloChangeLogs API Proxy...\" && su-exec node node /app/deploy/api-proxy.js"]
