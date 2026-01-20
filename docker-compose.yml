@@ -21,6 +21,7 @@ services:
     volumes:
       - palochangelogs-data:/app/data
       - palochangelogs-config:/app/config
+      - palochangelogs-frontend:/app/frontend
     networks:
       - palochangelogs-network
     healthcheck:
@@ -39,10 +40,11 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - palochangelogs-data:/usr/share/nginx/html/changes:ro
+      - palochangelogs-frontend:/usr/share/nginx/html/changes:ro
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - palochangelogs
+      palochangelogs:
+        condition: service_started
     networks:
       - palochangelogs-network
 
@@ -69,6 +71,8 @@ volumes:
   palochangelogs-data:
     driver: local
   palochangelogs-config:
+    driver: local
+  palochangelogs-frontend:
     driver: local
 
 networks:

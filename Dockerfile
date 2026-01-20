@@ -28,8 +28,8 @@ ENV VITE_AZURE_CLIENT_ID=$VITE_AZURE_CLIENT_ID
 ENV VITE_AZURE_AUTHORITY=$VITE_AZURE_AUTHORITY
 ENV VITE_AZURE_REDIRECT_URI=$VITE_AZURE_REDIRECT_URI
 
-# Build the application
-RUN npm run build
+# Build the application with base path
+RUN npm run build -- --base=/changes/
 
 # Stage 2: Production image
 FROM node:20-alpine
@@ -107,4 +107,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/app/docker-entrypoint.sh"]
+CMD ["sh", "-c", "cp -r /app/dist/* /app/frontend/ 2>/dev/null || true && /app/docker-entrypoint.sh"]
